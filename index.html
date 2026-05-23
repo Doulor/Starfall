@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>星碎 · 躲避弹幕</title>
+<style>
+  :root {
+    --bg: #0a0a14;
+    --panel-bg: rgba(10, 10, 30, 0.92);
+    --text: #c8c8e0;
+    --accent: #a78bfa;
+    --accent2: #7dd3fc;
+    --danger: #f87171;
+    --gold: #fbbf24;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    height: 100dvh;
+    width: 100vw;
+  }
+
+  canvas {
+    display: block;
+    position: absolute;
+    top: 0; left: 0;
+  }
+
+  /* --- Dialogue Overlay --- */
+  #dialogue-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 20px;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #dialogue-overlay.active {
+    display: flex;
+    pointer-events: auto;
+  }
+
+  #dialogue-panel {
+    width: min(92vw, 600px);
+    background: var(--panel-bg);
+    border: 1px solid rgba(167, 139, 250, 0.3);
+    border-radius: 16px;
+    padding: 16px 20px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 0 40px rgba(167, 139, 250, 0.15), inset 0 1px 0 rgba(255,255,255,0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 60dvh;
+    animation: panelIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(30px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  #boss-portrait {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  #boss-icon {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #e0d5ff, #7c3aed 70%, #4c1d95);
+    box-shadow: 0 0 20px rgba(167, 139, 250, 0.5);
+    flex-shrink: 0;
+  }
+  #boss-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #d8ceff;
+    letter-spacing: 0.02em;
+  }
+  #boss-mood {
+    font-size: 12px;
+    color: #a78bfa;
+    transition: color 0.6s;
+  }
+
+  #dialogue-log {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 6px;
+  }
+  #dialogue-log::-webkit-scrollbar { width: 3px; }
+  #dialogue-log::-webkit-scrollbar-thumb { background: rgba(167,139,250,0.3); border-radius: 4px; }
+
+  .msg { padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; animation: msgIn 0.3s ease; }
+  @keyframes msgIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+  .msg.boss   { background: rgba(167,139,250,0.12); color: #d8ceff; align-self: flex-start; border-top-left-radius: 2px; }
+  .msg.player { background: rgba(125,211,252,0.1);  color: #bae6fd; align-self: flex-end;   border-top-right-radius: 2px; }
+  .msg.system { background: rgba(251,191,36,0.08);  color: #fcd34d; align-self: center;     font-size: 11px; border-radius: 6px; }
+
+  #dialogue-input-row {
+    display: flex;
+    gap: 8px;
+  }
+  #dialogue-input {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(167,139,250,0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #e0e0f0;
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.3s;
+  }
+  #dialogue-input:focus { border-color: rgba(167,139,250,0.6); }
+  #dialogue-input::placeholder { color: rgba(200,200,224,0.3); }
+  #dialogue-send {
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 0 16px rgba(167,139,250,0.3);
+  }
+  #dialogue-send:active { transform: scale(0.95); }
+
+  /* --- HUD --- */
+  #hud {
+    position: absolute;
+    top: 12px; left: 16px; right: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .hud-item {
+    font-size: 12px;
+    color: rgba(200,200,224,0.7);
+    text-shadow: 0 0 8px rgba(167,139,250,0.4);
+    letter-spacing: 0.04em;
+  }
+  .hud-item span { color: #d8ceff; font-weight: 600; }
+
+  /* --- Mobile Controls --- */
+  #mobile-controls {
+    position: absolute;
+    bottom: 24px; left: 0; right: 0;
+    display: none;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 16px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  @media (max-width: 768px) { #mobile-controls { display: flex; } }
+
+  .ctrl-group {
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+  }
+  .ctrl-btn {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.5);
+    font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+  }
+  .ctrl-btn:active { background: rgba(255,255,255,0.15); }
+  .ctrl-jump {
+    width: 64px; height: 64px;
+    background: rgba(167,139,250,0.15);
+    border-color: rgba(167,139,250,0.3);
+    font-size: 24px;
+  }
+
+  /* --- Title / Game Over --- */
+  #title-screen, #gameover-screen {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 20;
+    background: rgba(10,10,20,0.85);
+    backdrop-filter: blur(4px);
+    pointer-events: auto;
+  }
+  #title-screen h1 {
+    font-size: clamp(28px, 6vw, 48px);
+    font-weight: 300;
+    color: #d8ceff;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 40px rgba(167,139,250,0.6), 0 0 80px rgba(125,211,252,0.3);
+  }
+  #title-screen .subtitle {
+    font-size: 13px;
+    color: rgba(200,200,224,0.5);
+    letter-spacing: 0.12em;
+    margin-top: -12px;
+  }
+  #gameover-screen h2 {
+    font-size: 32px;
+    color: #f87171;
+    font-weight: 300;
+    letter-spacing: 0.06em;
+  }
+
+  .btn {
+    padding: 12px 36px;
+    border-radius: 28px;
+    border: 1px solid rgba(167,139,250,0.4);
+    background: rgba(167,139,250,0.1);
+    color: #d8ceff;
+    font-size: 15px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.3s;
+    pointer-events: auto;
+  }
+  .btn:hover { background: rgba(167,139,250,0.2); box-shadow: 0 0 24px rgba(167,139,250,0.25); }
+  .btn:active { transform: scale(0.96); }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<!-- Title -->
+<div id="title-screen">
+  <h1>星 碎</h1>
+  <p class="subtitle">S T A R F A L L</p>
+  <button class="btn" onclick="game.start()">进入虚空</button>
+</div>
+
+<!-- Game Over -->
+<div id="gameover-screen" class="hidden">
+  <h2 id="go-title">星辰黯淡</h2>
+  <p id="go-msg" style="color:#c8c8e0;font-size:14px;"></p>
+  <button class="btn" onclick="game.respawn()">再次升起</button>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-item">生命 <span id="hud-lives">✦✦✦</span></div>
+  <div class="hud-item" id="hud-mood">情绪 <span>—</span></div>
+  <div class="hud-item">存活 <span id="hud-time">0s</span></div>
+</div>
+
+<!-- Dialogue -->
+<div id="dialogue-overlay">
+  <div id="dialogue-panel">
+    <div id="boss-portrait">
+      <div id="boss-icon"></div>
+      <div>
+        <div id="boss-name">露娜莉亚 · 碎星者</div>
+        <div id="boss-mood">情绪：平静</div>
+      </div>
+    </div>
+    <div id="dialogue-log"></div>
+    <div id="dialogue-input-row">
+      <input id="dialogue-input" type="text" placeholder="对她说些什么…" maxlength="120" autocomplete="off">
+      <button id="dialogue-send" onclick="game.sendDialogue()">诉说</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile Controls -->
+<div id="mobile-controls">
+  <div class="ctrl-group">
+    <button class="ctrl-btn" onpointerdown="game.input.left=true" onpointerup="game.input.left=false" onpointerleave="game.input.left=false">◀</button>
+    <button class="ctrl-btn" onpointerdown="game.input.right=true" onpointerup="game.input.right=false" onpointerleave="game.input.right=false">▶</button>
+  </div>
+  <button class="ctrl-btn ctrl-jump" onpointerdown="game.input.jump=true" onpointerup="game.input.jump=false" onpointerleave="game.input.jump=false">▲</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  星碎 · Starfall  — 躲避弹幕 H5 游戏
+// ═══════════════════════════════════════════
+
+// ─── 配置 ──────────────────────────────────
+const CFG = {
+  dialogueInterval: 40,       // 每 N 秒触发一次对话
+  dialogueDuration: 0,        // 对话持续（0=不限，由玩家手动结束）
+  playerSpeed: 340,
+  playerJumpForce: -620,
+  gravity: 1400,
+  playerSize: 13,
+  invulnDuration: 2.0,        // 重生无敌秒数
+  maxLives: 3,
+  bulletBaseSpeed: 180,       // 弹幕基础速度（受难度影响）
+  moodDifficultyMap: [1.5, 1.25, 1.0, 0.85, 0.7, 0.55],
+  // mood: 0=ENRAGED, 1=ANNOYED, 2=NEUTRAL, 3=CURIOUS, 4=PLEASED, 5=ENCHANTED
+};
+
+// ─── 工具函数 ──────────────────────────────
+const TWO_PI = Math.PI * 2;
+const rand = (a, b) => a + Math.random() * (b - a);
+const randi = (a, b) => Math.floor(rand(a, b + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const dist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+const lerp = (a, b, t) => a + (b - a) * t;
+const hsl = (h, s, l, a = 1) => `hsla(${h},${s}%,${l}%,${a})`;
+
+// ─── 画布设置 ──────────────────────────────
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ═══════════════════════════════════════════
+//  粒子系统
+// ═══════════════════════════════════════════
+class Particle {
+  constructor(x, y, vx, vy, life, hue, size = 2, type = 'dot') {
+    this.x = x; this.y = y;
+    this.vx = vx; this.vy = vy;
+    this.life = this.maxLife = life;
+    this.hue = hue;
+    this.size = size;
+    this.type = type; // 'dot', 'star', 'trail', 'spark'
+  }
+  update(dt) {
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.life -= dt;
+  }
+  get alpha() { return Math.max(0, this.life / this.maxLife); }
+  get alive() { return this.life > 0; }
+}
+
+class ParticlePool {
+  constructor() { this.particles = []; }
+  emit(x, y, count, cfg) {
+    for (let i = 0; i < count; i++) {
+      const angle = cfg.angle + rand(-cfg.spread, cfg.spread);
+      const speed = rand(cfg.speedMin, cfg.speedMax);
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed;
+      const life = rand(cfg.lifeMin, cfg.lifeMax);
+      const hue = cfg.hue + rand(-cfg.hueVar, cfg.hueVar);
+      const size = rand(cfg.sizeMin, cfg.sizeMax);
+      this.particles.push(new Particle(x, y, vx, vy, life, hue, size, cfg.type || 'dot'));
+    }
+  }
+  update(dt) {
+    this.particles = this.particles.filter(p => { p.update(dt); return p.alive; });
+  }
+  draw(ctx) {
+    for (const p of this.particles) {
+      const a = p.alpha;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = hsl(p.hue, 80, 70);
+      ctx.shadowColor = hsl(p.hue, 80, 60);
+      ctx.shadowBlur = p.size * 3;
+      if (p.type === 'star') {
+        ctx.fillStyle = '#fff';
+        const s = p.size * (0.6 + 0.4 * Math.sin(Date.now() * 0.01 + p.x));
+        ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
+      } else if (p.type === 'spark') {
+        ctx.fillStyle = hsl(p.hue, 90, 80);
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size * a, 0, TWO_PI); ctx.fill();
+      } else {
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, TWO_PI); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+//  弹幕系统
+// ═══════════════════════════════════════════
+class Bullet {
+  constructor(x, y, vx, vy, hue, size, type = 'orb') {
+    this.x = x; this.y = y;
+    this.vx = vx; this.vy = vy;
+    this.hue = hue;
+    this.size = size;
+    this.type = type; // 'orb', 'shard', 'beam', 'comet'
+    this.alive = true;
+    this.born = performance.now() / 1000;
+    this.trail = [];
+  }
+  update(dt) {
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    // Trail record
+    if (this.type !== 'beam') {
+      this.trail.push({ x: this.x, y: this.y, t: performance.now() / 1000 });
+      if (this.trail.length > 6) this.trail.shift();
+    }
+  }
+  get age() { return performance.now() / 1000 - this.born; }
+}
+
+class BulletManager {
+  constructor() { this.bullets = []; }
+  spawn(x, y, vx, vy, hue, size, type) {
+    this.bullets.push(new Bullet(x, y, vx, vy, hue, size, type));
+  }
+  update(dt) {
+    for (const b of this.bullets) b.update(dt);
+    // Remove off-screen or very old bullets
+    this.bullets = this.bullets.filter(b => {
+      if (b.age > 15) return false;
+      if (b.x < -80 || b.x > W + 80 || b.y < -80 || b.y > H + 80) return false;
+      return true;
+    });
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const now = performance.now() / 1000;
+    for (const b of this.bullets) {
+      const alpha = b.age < 0.15 ? b.age / 0.15 : 1;
+      ctx.globalAlpha = alpha;
+
+      // Trail
+      if (b.trail.length > 1 && b.type !== 'beam') {
+        ctx.beginPath();
+        ctx.strokeStyle = hsl(b.hue, 80, 65, alpha * 0.5);
+        ctx.lineWidth = b.size * 0.6;
+        ctx.moveTo(b.trail[0].x, b.trail[0].y);
+        for (let i = 1; i < b.trail.length; i++) {
+          ctx.lineTo(b.trail[i].x, b.trail[i].y);
+        }
+        ctx.stroke();
+      }
+
+      // Bullet body
+      ctx.shadowColor = hsl(b.hue, 90, 70);
+      ctx.shadowBlur = b.size * 4;
+      ctx.fillStyle = hsl(b.hue, 80, 70);
+
+      if (b.type === 'shard') {
+        // Diamond shape
+        const s = b.size;
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y - s);
+        ctx.lineTo(b.x + s * 0.6, b.y);
+        ctx.lineTo(b.x, b.y + s);
+        ctx.lineTo(b.x - s * 0.6, b.y);
+        ctx.closePath(); ctx.fill();
+      } else if (b.type === 'comet') {
+        // Teardrop with glow
+        const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.size * 1.8);
+        grad.addColorStop(0, hsl(b.hue, 100, 90));
+        grad.addColorStop(0.4, hsl(b.hue, 90, 70));
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.size * 1.8, 0, TWO_PI); ctx.fill();
+      } else {
+        // Orb
+        const grad = ctx.createRadialGradient(b.x - b.size*0.3, b.y - b.size*0.3, b.size*0.1, b.x, b.y, b.size);
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(0.3, hsl(b.hue, 90, 75));
+        grad.addColorStop(1, hsl(b.hue, 60, 40, 0));
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, TWO_PI); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+  clear() { this.bullets = []; }
+}
+
+// ═══════════════════════════════════════════
+//  攻击模式定义
+// ═══════════════════════════════════════════
+class AttackPattern {
+  constructor(boss) {
+    this.boss = boss;
+    this.timer = 0;
+    this.duration = 3 + Math.random() * 4; // 3-7秒
+    this.hue = rand(250, 320); // 紫色到蓝色范围
+  }
+  update(boss, bullets, particles, dt, difficulty) {}
+  get isDone() { return this.timer >= this.duration; }
+}
+
+// 1. 星雨 — 从boss洒落星点弹幕
+class StarRain extends AttackPattern {
+  update(boss, bullets, particles, dt, diff) {
+    this.timer += dt;
+    this.hue = 270 + Math.sin(this.timer * 1.5) * 20;
+    const rate = 0.03 / diff;
+    if (Math.random() < rate) {
+      const x = boss.x + rand(-60, 60);
+      const spread = rand(-0.4, 0.4);
+      const speed = CFG.bulletBaseSpeed * diff * rand(0.7, 1.3);
+      bullets.spawn(x, boss.y + 20, spread * speed * 0.4, speed, this.hue, rand(3, 6), 'orb');
+    }
+    // Occasional faster shard
+    if (Math.random() < 0.008 * diff) {
+      const x = boss.x + rand(-50, 50);
+      bullets.spawn(x, boss.y + 15, rand(-0.2,0.2) * 80, CFG.bulletBaseSpeed * diff * 1.4, this.hue + 30, rand(5, 8), 'shard');
+    }
+  }
+}
+
+// 2. 螺旋花 — 双螺旋旋转弹幕
+class SpiralBloom extends AttackPattern {
+  constructor(boss) {
+    super(boss);
+    this.angle = 0;
+    this.arms = 3;
+    this.spinSpeed = rand(1.5, 2.5);
+  }
+  update(boss, bullets, particles, dt, diff) {
+    this.timer += dt;
+    this.angle += this.spinSpeed * diff * dt;
+    this.hue = 290 + Math.sin(this.timer * 0.7) * 30;
+    const fireInterval = 0.08 / diff;
+    if (Math.floor(this.timer / fireInterval) > Math.floor((this.timer - dt) / fireInterval)) {
+      for (let a = 0; a < this.arms; a++) {
+        const aa = this.angle + (TWO_PI / this.arms) * a;
+        const speed = CFG.bulletBaseSpeed * diff * (0.8 + Math.sin(this.timer * 3 + a) * 0.3);
+        bullets.spawn(boss.x, boss.y, Math.cos(aa) * speed, Math.sin(aa) * speed, this.hue + a * 20, rand(4, 7), 'orb');
+      }
+    }
+    // Extra particles for visual effect
+    if (Math.random() < 0.3) {
+      particles.emit(boss.x, boss.y, 1, {
+        angle: this.angle, spread: TWO_PI, speedMin: 20, speedMax: 60, lifeMin: 0.3, lifeMax: 0.8,
+        hue: this.hue, hueVar: 20, sizeMin: 1, sizeMax: 3, type: 'spark'
+      });
+    }
+  }
+}
+
+// 3. 脉冲波 — 同心圆扩散弹幕
+class PulseWave extends AttackPattern {
+  constructor(boss) { super(boss); this.pulses = []; this.duration = 4 + Math.random() * 3; }
+  update(boss, bullets, particles, dt, diff) {
+    this.timer += dt;
+    this.hue = 260 + Math.sin(this.timer) * 25;
+    if (Math.floor(this.timer / (0.55 / diff)) > Math.floor((this.timer - dt) / (0.55 / diff))) {
+      const count = Math.floor(12 + 6 * diff);
+      for (let i = 0; i < count; i++) {
+        const angle = (TWO_PI / count) * i + this.timer * 0.4;
+        const speed = CFG.bulletBaseSpeed * diff * 0.7;
+        bullets.spawn(boss.x, boss.y, Math.cos(angle) * speed, Math.sin(angle) * speed, this.hue + i * 3, rand(3, 6), 'orb');
+      }
+    }
+  }
+}
+
+// 4. 彗星群 — 跟踪加速弹幕
+class CometSwarm extends AttackPattern {
+  constructor(boss) { super(boss); this.swarmAngle = rand(0, TWO_PI); }
+  update(boss, bullets, particles, dt, diff) {
+    this.timer += dt;
+    this.hue = 200 + Math.sin(this.timer * 2) * 30;
+    this.swarmAngle += 0.6 * dt;
+    if (Math.random() < 0.04 * diff) {
+      const angle = this.swarmAngle + rand(-0.5, 0.5);
+      const speed = CFG.bulletBaseSpeed * diff * 1.1;
+      bullets.spawn(boss.x, boss.y, Math.cos(angle) * speed, Math.sin(angle) * speed, this.hue, rand(5, 9), 'comet');
+    }
+    // Track player: gently curve existing bullets toward player
+    const player = this.boss.game.player;
+    for (const b of bullets.bullets) {
+      if (b.type === 'comet' && b.age > 0.3 && b.age < 2) {
+        const dx = player.x - b.x;
+        const dy = player.y - b.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const force = 60 * diff * dt;
+        b.vx += (dx / d) * force;
+        b.vy += (dy / d) * force;
+      }
+    }
+  }
+}
+
+// 5. 星云爆发 — 蓄力后全方向爆发
+class NebulaBurst extends AttackPattern {
+  constructor(boss) { super(boss); this.charged = false; this.chargeTime = 1.2 / this.diff; }
+  update(boss, bullets, particles, dt, diff) {
+    this.timer += dt;
+    this.hue = 310;
+    const chargeThreshold = 1.2 / diff;
+    if (!this.charged && this.timer >= chargeThreshold) {
+      this.charged = true;
+      const count = Math.floor(28 + 12 * diff);
+      for (let i = 0; i < count; i++) {
+        const angle = (TWO_PI / count) * i + rand(-0.08, 0.08);
+        const speed = CFG.bulletBaseSpeed * diff * rand(0.8, 1.3);
+        bullets.spawn(boss.x, boss.y, Math.cos(angle) * speed, Math.sin(angle) * speed, this.hue + i * 5, rand(4, 7), 'orb');
+      }
+      particles.emit(boss.x, boss.y, 40, {
+        angle: 0, spread: TWO_PI, speedMin: 60, speedMax: 200, lifeMin: 0.3, lifeMax: 0.9,
+        hue: this.hue, hueVar: 40, sizeMin: 2, sizeMax: 6, type: 'spark'
+      });
+      this.duration = chargeThreshold + 1.5;
+    }
+    // Charging particles
+    if (!this.charged && Math.random() < 0.5) {
+      const a = rand(0, TWO_PI);
+      particles.emit(boss.x + Math.cos(a)*30, boss.y + Math.sin(a)*30, 1, {
+        angle: a + Math.PI, spread: 0.3, speedMin: 40, speedMax: 100, lifeMin: 0.2, lifeMax: 0.5,
+        hue: 60, hueVar: 10, sizeMin: 1, sizeMax: 3, type: 'spark'
+      });
+    }
+  }
+}
+
+// 6. 激光编织 — 水平/垂直激光扫描
+class LaserWeave extends AttackPattern {
+  constructor(boss) {
+    super(boss);
+    this.lasers = [];
+    this.duration = 3 + Math.random() * 3;
+    // Pre-generate laser positions
+    for (let i = 0; i < 4; i++) {
+      this.lasers.push({
+        x: rand(60, W - 60),
+        y: rand(boss.y + 60, H * 0.7),
+        dir: Math.random() < 0.5 ? 'h' : 'v',
+        speed: rand(60, 140),
+        phase: rand(0, TWO_PI),
+        hue: rand(250, 310)
+      });
+    }
+  }
+  update(boss, bullets, particles, dt, diff) {
+    this.timer += dt;
+    this.hue = 280;
+    for (const l of this.lasers) {
+      if (l.dir === 'h') {
+        l.x += l.speed * dt * (Math.sin(this.timer * 1.3 + l.phase) > 0 ? 1 : -1);
+        l.y += Math.sin(this.timer * 2 + l.phase) * 30 * dt;
+        // Spawn bullets along horizontal line
+        if (Math.random() < 0.15 * diff) {
+          bullets.spawn(l.x + rand(-8, 8), l.y, 0, rand(40, 100) * diff, l.hue, rand(3, 5), 'shard');
+        }
+      } else {
+        l.y += l.speed * dt * (Math.cos(this.timer * 1.5 + l.phase) > 0 ? 1 : -1);
+        l.x += Math.cos(this.timer * 1.8 + l.phase) * 30 * dt;
+        if (Math.random() < 0.15 * diff) {
+          bullets.spawn(l.x, l.y + rand(-8, 8), rand(40, 100) * diff, 0, l.hue, rand(3, 5), 'shard');
+        }
+      }
+      // Clamp
+      l.x = Math.max(20, Math.min(W - 20, l.x));
+      l.y = Math.max(boss.y + 40, Math.min(H - 40, l.y));
+    }
+  }
+  drawLasers(ctx) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const l of this.lasers) {
+      const alpha = 0.25 + 0.15 * Math.sin(this.timer * 4 + l.phase);
+      ctx.strokeStyle = hsl(l.hue, 80, 65, alpha);
+      ctx.lineWidth = 2;
+      ctx.shadowColor = hsl(l.hue, 90, 70);
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      if (l.dir === 'h') {
+        ctx.moveTo(l.x - 50, l.y); ctx.lineTo(l.x + 50, l.y);
+      } else {
+        ctx.moveTo(l.x, l.y - 50); ctx.lineTo(l.x, l.y + 50);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+// 7. 星尘碎片 — 大弹幕分裂
+class StarFragments extends AttackPattern {
+  constructor(boss) { super(boss); this.duration = 5 + Math.random() * 4; }
+  update(boss, bullets, particles, dt, diff) {
+    this.timer += dt;
+    this.hue = 330 + Math.sin(this.timer) * 20;
+    // Spawn large slow bullets occasionally
+    if (Math.random() < 0.025 * diff) {
+      const angle = rand(0.3, Math.PI - 0.3); // downward angles
+      const speed = CFG.bulletBaseSpeed * diff * 0.5;
+      bullets.spawn(boss.x + rand(-40, 40), boss.y + 20,
+        Math.cos(angle) * speed, Math.sin(angle) * speed,
+        this.hue, 8 + rand(0, 4), 'shard');
+    }
+    // Check for bullets to split
+    for (const b of bullets.bullets) {
+      if (b.type === 'shard' && b.size > 6 && b.age > 0.6 && Math.random() < 0.02 * diff) {
+        b.alive = false;
+        const count = randi(3, 6);
+        for (let i = 0; i < count; i++) {
+          const fa = rand(0, TWO_PI);
+          const fs = CFG.bulletBaseSpeed * diff * rand(0.7, 1.2);
+          bullets.spawn(b.x, b.y, Math.cos(fa) * fs, Math.sin(fa) * fs, b.hue + 20, rand(2, 4), 'orb');
+        }
+        particles.emit(b.x, b.y, 6, {
+          angle: 0, spread: TWO_PI, speedMin: 30, speedMax: 90, lifeMin: 0.15, lifeMax: 0.4,
+          hue: b.hue, hueVar: 20, sizeMin: 1, sizeMax: 3, type: 'spark'
+        });
+      }
+    }
+  }
+}
+
+// 8. 重力井 — 弹幕被吸入一点再释放
+class GravityWell extends AttackPattern {
+  constructor(boss) {
+    super(boss);
+    this.wellX = rand(W * 0.2, W * 0.8);
+    this.wellY = rand(H * 0.3, H * 0.7);
+    this.phase = 'collect';
+    this.phaseTimer = 0;
+    this.suckedBullets = [];
+    this.duration = 5 + Math.random() * 3;
+  }
+  update(boss, bullets, particles, dt, diff) {
+    this.timer += dt;
+    this.phaseTimer += dt;
+    this.hue = 240;
+    const collectDuration = 1.5 / diff;
+    const holdDuration = 0.8;
+
+    if (this.phase === 'collect' && this.phaseTimer < collectDuration) {
+      // Spawn bullets that get sucked toward well
+      if (Math.random() < 0.06) {
+        const sx = boss.x + rand(-70, 70);
+        const sy = boss.y + rand(0, 40);
+        const b = new Bullet(sx, sy, rand(-0.3, 0.3) * 30, rand(0.5, 1) * 100, this.hue, rand(3, 5), 'orb');
+        this.suckedBullets.push(b);
+        bullets.bullets.push(b);
+      }
+      // Pull bullets toward well
+      for (const b of this.suckedBullets) {
+        if (!b.alive) continue;
+        const dx = this.wellX - b.x;
+        const dy = this.wellY - b.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const force = 300 * dt;
+        b.vx += (dx / d) * force;
+        b.vy += (dy / d) * force;
+        b.vx *= 0.98; b.vy *= 0.98; // dampen
+      }
+    } else if (this.phase === 'collect') {
+      this.phase = 'hold';
+      this.phaseTimer = 0;
+      // Remove sucked bullets
+      for (const b of this.suckedBullets) b.alive = false;
+      this.suckedBullets = [];
+      particles.emit(this.wellX, this.wellY, 30, {
+        angle: 0, spread: TWO_PI, speedMin: 80, speedMax: 250, lifeMin: 0.4, lifeMax: 0.8,
+        hue: this.hue, hueVar: 30, sizeMin: 2, sizeMax: 5, type: 'spark'
+      });
+    } else if (this.phase === 'hold' && this.phaseTimer >= holdDuration) {
+      // Release: explosive burst from well
+      this.phase = 'release';
+      const count = Math.floor(24 + 10 * diff);
+      for (let i = 0; i < count; i++) {
+        const angle = (TWO_PI / count) * i + rand(-0.05, 0.05);
+        const speed = CFG.bulletBaseSpeed * diff * rand(0.9, 1.4);
+        bullets.spawn(this.wellX, this.wellY, Math.cos(angle) * speed, Math.sin(angle) * speed, this.hue + 40, rand(4, 7), 'comet');
+      }
+      this.duration = Math.min(this.duration, this.timer + 1.5);
+    }
+  }
+  drawWell(ctx) {
+    if (this.phase === 'collect' || this.phase === 'hold') {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const pulse = 0.6 + 0.4 * Math.sin(this.phaseTimer * 8);
+      const grad = ctx.createRadialGradient(this.wellX, this.wellY, 0, this.wellX, this.wellY, 40 * pulse);
+      grad.addColorStop(0, 'rgba(180,200,255,0.5)');
+      grad.addColorStop(0.5, 'rgba(100,140,255,0.2)');
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(this.wellX, this.wellY, 40 * pulse, 0, TWO_PI); ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+// Pattern registry
+const PATTERNS = [StarRain, SpiralBloom, PulseWave, CometSwarm, NebulaBurst, LaserWeave, StarFragments, GravityWell];
+const PATTERN_NAMES = ['星雨', '螺旋花', '脉冲波', '彗星群', '星云爆发', '激光编织', '星尘碎片', '重力井'];
+
+// ═══════════════════════════════════════════
+//  玩家
+// ═══════════════════════════════════════════
+class Player {
+  constructor() {
+    this.reset();
+  }
+
+  reset() {
+    this.x = W / 2;
+    this.y = H * 0.78;
+    this.vx = 0;
+    this.vy = 0;
+    this.width = CFG.playerSize * 2;
+    this.height = CFG.playerSize * 2;
+    this.grounded = false;
+    this.invulnTimer = 0;
+    this.alive = true;
+    this.trailHue = 200;
+    this.dashCooldown = 0;
+  }
+
+  get hitbox() {
+    return {
+      x: this.x - CFG.playerSize,
+      y: this.y - CFG.playerSize,
+      w: CFG.playerSize * 2,
+      h: CFG.playerSize * 2
+    };
+  }
+
+  update(dt, input, particles, groundY) {
+    if (!this.alive) return;
+
+    // Invulnerability countdown
+    if (this.invulnTimer > 0) this.invulnTimer -= dt;
+
+    // Horizontal movement (smooth acceleration)
+    const accel = 1800;
+    const friction = 0.82;
+    if (input.left)  this.vx -= accel * dt;
+    if (input.right) this.vx += accel * dt;
+    if (!input.left && !input.right) {
+      this.vx *= Math.pow(friction, dt * 60);
+      if (Math.abs(this.vx) < 5) this.vx = 0;
+    }
+    this.vx = Math.max(-CFG.playerSpeed, Math.min(CFG.playerSpeed, this.vx));
+
+    // Jump
+    if (input.jump && this.grounded) {
+      this.vy = CFG.playerJumpForce;
+      this.grounded = false;
+      // Jump particles
+      particles.emit(this.x, this.y + CFG.playerSize, 8, {
+        angle: -Math.PI/2, spread: 0.8, speedMin: 40, speedMax: 120,
+        lifeMin: 0.15, lifeMax: 0.4, hue: 200, hueVar: 20, sizeMin: 1, sizeMax: 3, type: 'spark'
+      });
+    }
+
+    // Gravity
+    this.vy += CFG.gravity * dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // Ground collision
+    if (this.y >= groundY) {
+      this.y = groundY;
+      this.vy = 0;
+      this.grounded = true;
+    }
+
+    // Wall bounds
+    this.x = Math.max(CFG.playerSize, Math.min(W - CFG.playerSize, this.x));
+
+    // Trail particles
+    if (Math.random() < 0.6 && (Math.abs(this.vx) > 20 || !this.grounded)) {
+      particles.emit(this.x, this.y, 1, {
+        angle: -Math.PI/2 + rand(-0.3, 0.3), spread: 0.2,
+        speedMin: 10, speedMax: 40, lifeMin: 0.1, lifeMax: 0.35,
+        hue: this.trailHue + Math.sin(Date.now()*0.01)*10, hueVar: 15,
+        sizeMin: 1, sizeMax: 3, type: 'spark'
+      });
+    }
+
+    // Dash cooldown visual indicator
+    if (this.dashCooldown > 0) this.dashCooldown -= dt;
+  }
+
+  draw(ctx) {
+    if (!this.alive) return;
+    // Blink during invulnerability
+    if (this.invulnTimer > 0 && Math.floor(this.invulnTimer * 10) % 2 === 0) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Glow aura
+    const auraGrad = ctx.createRadialGradient(this.x, this.y, CFG.playerSize * 0.3, this.x, this.y, CFG.playerSize * 2.5);
+    auraGrad.addColorStop(0, 'rgba(125,211,252,0.5)');
+    auraGrad.addColorStop(0.5, 'rgba(125,200,252,0.15)');
+    auraGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = auraGrad;
+    ctx.beginPath(); ctx.arc(this.x, this.y, CFG.playerSize * 2.5, 0, TWO_PI); ctx.fill();
+
+    // Core body
+    const bodyGrad = ctx.createRadialGradient(this.x - 2, this.y - 3, 1, this.x, this.y, CFG.playerSize);
+    bodyGrad.addColorStop(0, '#fff');
+    bodyGrad.addColorStop(0.25, '#bae6fd');
+    bodyGrad.addColorStop(0.6, '#38bdf8');
+    bodyGrad.addColorStop(1, 'rgba(14,116,144,0)');
+    ctx.fillStyle = bodyGrad;
+    ctx.shadowColor = '#7dd3fc';
+    ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.arc(this.x, this.y, CFG.playerSize, 0, TWO_PI); ctx.fill();
+
+    // Inner highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath(); ctx.arc(this.x - 3, this.y - 4, CFG.playerSize * 0.3, 0, TWO_PI); ctx.fill();
+
+    ctx.restore();
+  }
+
+  hit(bullet) {
+    if (this.invulnTimer > 0 || !this.alive) return false;
+    const hb = this.hitbox;
+    const hitRadius = CFG.playerSize + bullet.size * 0.7;
+    return dist(this.x, this.y, bullet.x, bullet.y) < hitRadius;
+  }
+}
+
+// ═══════════════════════════════════════════
+//  Boss: 露娜莉亚 · 碎星者
+// ═══════════════════════════════════════════
+class Boss {
+  constructor(game) {
+    this.game = game;
+    this.x = W / 2;
+    this.y = H * 0.13;
+    this.mood = 2; // NEUTRAL
+    this.currentPattern = null;
+    this.currentPatternIdx = 0;
+    this.patternTimer = 0;
+    this.idleBob = 0;
+    this.auraOrbs = [];
+    this.wingAngle = 0;
+    // Generate initial aura orbs
+    for (let i = 0; i < 8; i++) {
+      this.auraOrbs.push({ angle: (TWO_PI / 8) * i, dist: 45 + rand(-10, 10), speed: rand(0.3, 0.8), size: rand(2, 4), hue: rand(260, 310) });
+    }
+  }
+
+  reset() {
+    this.mood = 2;
+    this.currentPattern = null;
+    this.patternTimer = 0;
+  }
+
+  get difficulty() {
+    return CFG.moodDifficultyMap[this.mood] || 1.0;
+  }
+
+  get moodName() {
+    return ['震怒', '不悦', '平静', '好奇', '愉悦', '沉醉'][this.mood];
+  }
+  get moodHue() {
+    return [0, 20, 270, 240, 200, 170][this.mood];
+  }
+
+  update(dt, bullets, particles) {
+    this.idleBob = Math.sin(performance.now() * 0.002) * 6;
+    this.wingAngle = Math.sin(performance.now() * 0.003) * 0.2;
+    this.x = W / 2 + Math.sin(performance.now() * 0.001) * 20;
+
+    // Update aura orbs
+    for (const orb of this.auraOrbs) {
+      orb.angle += orb.speed * dt;
+    }
+
+    // Manage attack pattern
+    if (!this.currentPattern || this.currentPattern.isDone) {
+      this.pickPattern();
+    }
+    if (this.currentPattern) {
+      this.currentPattern.update(this, bullets, particles, dt, this.difficulty);
+    }
+
+    // Boss ambient particles
+    if (Math.random() < 0.4) {
+      const a = rand(0, TWO_PI);
+      const d = rand(40, 80);
+      particles.emit(this.x + Math.cos(a) * d, this.y + Math.sin(a) * d, 1, {
+        angle: a + Math.PI / 2, spread: 0.4, speedMin: 10, speedMax: 30,
+        lifeMin: 0.5, lifeMax: 1.2, hue: this.moodHue, hueVar: 30, sizeMin: 1, sizeMax: 3, type: 'spark'
+      });
+    }
+  }
+
+  pickPattern() {
+    // Weight pattern selection by mood
+    // Harder moods favor more aggressive patterns (0-3: StarRain, SpiralBloom, PulseWave, CometSwarm)
+    // Easier moods favor more beautiful ones (4-5: NebulaBurst, StarFragments)
+    // LaserWeave(5) and GravityWell(7) are mid-difficulty
+    const idx = randi(0, PATTERNS.length - 1);
+    this.currentPatternIdx = idx;
+    this.currentPattern = new PATTERNS[idx](this);
+    this.currentPattern.duration = 3 + Math.random() * 5;
+  }
+
+  draw(ctx) {
+    ctx.save();
+    const cx = this.x;
+    const cy = this.y + this.idleBob;
+
+    // ── Outer aura (mood colored) ──
+    const auraGrad = ctx.createRadialGradient(cx, cy, 30, cx, cy, 140);
+    const moodH = this.moodHue;
+    auraGrad.addColorStop(0, hsl(moodH, 70, 60, 0.25));
+    auraGrad.addColorStop(0.5, hsl(moodH, 60, 40, 0.08));
+    auraGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = auraGrad;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath(); ctx.arc(cx, cy, 140, 0, TWO_PI); ctx.fill();
+
+    // ── Aura orbs ──
+    for (const orb of this.auraOrbs) {
+      const ox = cx + Math.cos(orb.angle) * orb.dist;
+      const oy = cy + Math.sin(orb.angle) * orb.dist * 0.6;
+      ctx.fillStyle = hsl(orb.hue, 80, 70, 0.7);
+      ctx.shadowColor = hsl(orb.hue, 90, 70);
+      ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(ox, oy, orb.size, 0, TWO_PI); ctx.fill();
+    }
+
+    // ── Wings ──
+    ctx.globalAlpha = 0.5;
+    for (let side = -1; side <= 1; side += 2) {
+      const wa = this.wingAngle * side;
+      ctx.fillStyle = hsl(270, 60, 65, 0.4);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 5);
+      ctx.quadraticCurveTo(cx + side * 50, cy - 30 + wa * 20, cx + side * 80, cy - 50 + wa * 30);
+      ctx.quadraticCurveTo(cx + side * 70, cy + 10, cx + side * 30, cy + 15);
+      ctx.quadraticCurveTo(cx + side * 10, cy - 5, cx, cy - 10);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // ── Body ──
+    // Halo
+    const haloGrad = ctx.createRadialGradient(cx, cy - 15, 5, cx, cy - 15, 35);
+    haloGrad.addColorStop(0, hsl(60, 90, 80, 0.6));
+    haloGrad.addColorStop(0.6, hsl(270, 70, 60, 0.15));
+    haloGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = haloGrad;
+    ctx.beginPath(); ctx.arc(cx, cy - 18, 35, 0, TWO_PI); ctx.fill();
+
+    // Core body (ethereal figure)
+    const bodyGrad = ctx.createRadialGradient(cx, cy - 2, 4, cx, cy, 22);
+    bodyGrad.addColorStop(0, '#f5f0ff');
+    bodyGrad.addColorStop(0.3, '#d8ceff');
+    bodyGrad.addColorStop(0.7, '#7c3aed');
+    bodyGrad.addColorStop(1, 'rgba(76,29,149,0)');
+    ctx.fillStyle = bodyGrad;
+    ctx.shadowColor = '#a78bfa';
+    ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(cx, cy, 22, 0, TWO_PI); ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(cx - 6, cy - 4, 3.5, 0, TWO_PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 6, cy - 4, 3.5, 0, TWO_PI); ctx.fill();
+    // Pupils (look toward player slightly)
+    const px = this.game.player.x;
+    const lookX = Math.max(-1, Math.min(1, (px - cx) / W)) * 1.5;
+    ctx.fillStyle = '#1a0040';
+    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(cx - 6 + lookX, cy - 4, 1.8, 0, TWO_PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 6 + lookX, cy - 4, 1.8, 0, TWO_PI); ctx.fill();
+
+    // ── Name label ──
+    ctx.fillStyle = 'rgba(216,206,255,0.6)';
+    ctx.font = '11px "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 0;
+    ctx.fillText('露娜莉亚', cx, cy - 48);
+
+    ctx.restore();
+  }
+
+  // Draw pattern-specific overlays
+  drawPatternOverlay(ctx) {
+    if (this.currentPattern && this.currentPattern.drawLasers) {
+      this.currentPattern.drawLasers(ctx);
+    }
+    if (this.currentPattern && this.currentPattern.drawWell) {
+      this.currentPattern.drawWell(ctx);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+//  AI 对话系统
+// ═══════════════════════════════════════════
+class DialogueAI {
+  constructor() {
+    this.history = [];
+    this.lastTopic = '';
+    this.conversationCount = 0;
+  }
+
+  // ── 关键词分析 ──
+  analyze(text) {
+    const lower = text.toLowerCase();
+    const result = {
+      sentiment: 0,    // -1 to 1
+      topics: [],
+      keywords: [],
+      isQuestion: false,
+      isHostile: false,
+      isKind: false,
+      isCurious: false,
+      isFlattering: false,
+      relevance: 0,
+    };
+
+    // Sentiment keywords
+    const positive = ['美丽', '美', '漂亮', '优雅', '好', '帮', '谢', '善良', '温柔', '了不起', '厉害', '棒', '赞', '爱', '喜欢', '治愈', 'peace', 'love', '美しい', 'すごい', '素敵'];
+    const negative = ['弱', '垃圾', '丑', '丑陋', '去死', '讨厌', '恨', '恶', '蠢', '笨', '无聊', '废物', '滚', 'fuck', 'shit', '笨蛋', '白痴'];
+    const hostile = ['杀', '灭', '毁', '打', '死', '战斗', '攻击', '恨你', '消灭', '击败', 'kill', 'destroy', 'hate'];
+    const kind = ['理解', '懂你', '倾听', '朋友', '同伴', '和平', '友谊', '共鸣', '相信', 'friend', 'understand', 'help', '关怀', '关心', '愿意'];
+    const curious = ['为什么', '什么', '如何', '怎么', '故事', '曾经', '过去', '你是谁', '名字', '原因', 'why', 'what', 'how', 'history', '你是谁', '来自', '经历'];
+    const flattering = ['强大', '美', '美丽', '优雅', '闪耀', '光芒', '星辰', '崇拜', '敬仰', '尊敬', 'admire', 'beautiful', 'powerful', 'gorgeous', '迷人', '沉醉'];
+
+    for (const w of positive) if (lower.includes(w)) result.sentiment += 0.2;
+    for (const w of negative) if (lower.includes(w)) result.sentiment -= 0.3;
+    for (const w of hostile) { if (lower.includes(w)) { result.sentiment -= 0.25; result.isHostile = true; result.topics.push('hostile'); } }
+    for (const w of kind)    { if (lower.includes(w)) { result.sentiment += 0.2; result.isKind = true; result.topics.push('kindness'); } }
+    for (const w of curious) { if (lower.includes(w)) { result.isCurious = true; result.topics.push('curiosity'); } }
+    for (const w of flattering) { if (lower.includes(w)) { result.sentiment += 0.15; result.isFlattering = true; result.topics.push('flattery'); } }
+
+    result.sentiment = Math.max(-1, Math.min(1, result.sentiment));
+    result.isQuestion = lower.includes('?') || lower.includes('？') || curious.some(w => lower.includes(w));
+    result.relevance = Math.max(0, result.sentiment * 0.4 + (result.isCurious ? 0.3 : 0) + (result.isKind ? 0.2 : 0));
+
+    // Keywords for topic tracking
+    const allKeywords = [...positive, ...negative, ...hostile, ...kind, ...curious, ...flattering];
+    result.keywords = allKeywords.filter(w => lower.includes(w));
+
+    return result;
+  }
+
+  // ── 获取Boss回应 ──
+  getResponse(playerText, analysis, mood, history) {
+    this.conversationCount++;
+    const name = '露娜莉亚';
+
+    // Determine response category based on analysis
+    let category = 'neutral';
+
+    if (analysis.isHostile) {
+      category = 'hostile';
+    } else if (analysis.isCurious && analysis.sentiment >= 0) {
+      category = 'curious_positive';
+    } else if (analysis.isCurious && analysis.sentiment < 0) {
+      category = 'curious_negative';
+    } else if (analysis.isKind && analysis.sentiment > 0.3) {
+      category = 'kind_deep';
+    } else if (analysis.isFlattering && analysis.sentiment > 0.2) {
+      category = 'flattered';
+    } else if (analysis.sentiment > 0.4) {
+      category = 'pleased';
+    } else if (analysis.sentiment < -0.4) {
+      category = 'annoyed';
+    } else if (analysis.isQuestion) {
+      category = 'question';
+    }
+
+    // Adjust with mood context
+    if (mood <= 1 && category === 'hostile') category = 'hostile_escalated';
+    if (mood >= 4 && category === 'hostile') category = 'hostile_forgiven';
+
+    const responses = this.getResponsePool();
+    const pool = responses[category] || responses['neutral'];
+    return pick(pool);
+  }
+
+  getResponsePool() {
+    const N = '露娜莉亚';
+    return {
+      neutral: [
+        `（${N}的目光淡淡扫过你）虚空中的话语如尘埃般飘散……你还有什么想说的吗？`,
+        `${N}微微侧首："我在倾听，旅者。虚空虽冷，言语尚可温暖片刻。"`,
+        `她的星眸闪烁不定："继续说下去。在这无边的黑暗中，言语是唯一的光。"`,
+        `"嗯……"${N}轻声沉吟，星光在她周身缓缓流转。`,
+      ],
+      hostile: [
+        `（${N}的瞳孔骤然收缩，周身星焰暴涨）"放肆！你以为凭你那点微末的力量，也敢在此口出狂言？感受星辰的怒火吧！"`,
+        `${N}冷笑，周遭温度骤降："很好。你的狂妄，我会用漫天星雨来回应。"`,
+        `"愚蠢的凡人。"${N}抬起手，星屑在她掌心凝聚成锋利的碎片，"你的话语，为你招来了更璀璨的毁灭。"`,
+        `她周身的光晕转为暗红："言语可以伤人，星芒亦然。准备好迎接真正的考验了吗？"`,
+      ],
+      hostile_escalated: [
+        `（${N}已怒不可遏，周身星环碎裂）"够了！我一再容忍，你却步步相逼。那就以湮灭来回应你的无礼！"`,
+        `${N}的眼中闪烁着毁灭的光芒："曾有星辰因我一句话而陨落，你以为你的狂妄会有不同的结局？"`,
+      ],
+      hostile_forgiven: [
+        `（${N}沉默片刻，周身的怒焰渐渐平息）"……罢了。你并不理解你面对的是什么。我原谅你的无知。"`,
+        `${N}叹了口气，星光重新变得柔和："即便你如此出言不逊……我今日心情尚好，便不与你计较了。"`,
+      ],
+      curious_positive: [
+        `（${N}的星眸流露出些许惊讶）"你……真的想知道我的过去？很少有人愿意倾听一颗碎星的故事。"`,
+        `她的光芒柔和了几分："我曾经是夜空的守护者，亿万星辰的主宰……直到那场灾变将我撕裂。你为何想知道这些？"`,
+        `${N}微微倾身，脸上浮现出遥远的神情："很久没有人问过我这个问题了。让我想想该从哪里说起……那片星海，早已不再是我的归处。"`,
+      ],
+      curious_negative: [
+        `${N}侧过脸去："有些问题，不问比较好。过去的碎片太过锋利，连我自己都不愿触碰。"`,
+        `"你很好奇，但好奇有时是危险的。"她的星光黯淡了些，"我的过去……不是你该涉足的领域。"`,
+      ],
+      kind_deep: [
+        `（${N}怔住了，星光在她眼中微微颤动）"已经……不知多少纪元，没有人这样对我说过话了。你知道吗，旅者，你的善意比任何星辰都要明亮。"`,
+        `她周身的星屑轻轻飘向你："你的话语……让我想起了一些温暖的回忆。谢谢你，虽然这份温暖在这虚空中如此短暂。"`,
+        `"也许……也许你和其他人不一样。"${N}的声音变得轻柔，"如果你真的理解我所背负的，或许我们可以……不，没什么。"`,
+      ],
+      flattered: [
+        `（${N}的星芒微微泛起了粉色）"你这样赞美一颗破碎的星星……真是奇怪的凡人。不过，我并不讨厌。"`,
+        `她的光晕流转出愉悦的色彩："呵……你的话语倒是比你的身手要优雅得多。继续保持，旅者。"`,
+        `${N}轻轻笑了，这是你第一次看到她笑："花言巧语。不过在这片死寂的虚空中，偶尔听听也不错。"`,
+      ],
+      pleased: [
+        `（${N}的星光变得格外柔和，甚至带上了些许暖意）"与你交谈，竟让我感到……久违的安宁。继续说吧，旅者。"`,
+        `她的周身星环缓缓旋转："你的态度值得赞赏。也许我们可以有更多的交流……毕竟，虚空太过寂寞。"`,
+      ],
+      annoyed: [
+        `${N}皱了皱眉，星光略显黯淡："你的话语令我感到不悦。注意你的言辞，凡人。"`,
+        `"说完了吗？"${N}的语气变得冷淡，"我不确定你值得我继续浪费时间。"`,
+      ],
+      question: [
+        `${N}若有所思："你问了一个有趣的问题……但答案或许不是现在的你能够承受的。"`,
+        `"这是个好问题。"她轻轻抬起手，星光在指尖跳跃，"但我想先看看你能在这场试炼中走多远，再决定是否回答。"`,
+      ],
+    };
+  }
+
+  // ── 计算mood变化 ──
+  calculateMoodChange(analysis, currentMood) {
+    let change = 0;
+    change += analysis.sentiment * 0.6;
+    if (analysis.isKind && analysis.sentiment > 0.2) change += 0.4;
+    if (analysis.isHostile) change -= 0.5;
+    if (analysis.isFlattering && analysis.sentiment > 0.1) change += 0.25;
+    if (analysis.isCurious && analysis.sentiment > 0) change += 0.2;
+    // Repeated hostile behavior escalates
+    if (analysis.isHostile && currentMood <= 1) change -= 0.3;
+    // Hard to go above 4 or below 0
+    return Math.max(-1, Math.min(1, change));
+  }
+
+  // ── 对话后的游戏效果（明显的反馈） ──
+  getGameplayEffect(moodChange, newMood) {
+    const effects = [];
+    if (moodChange >= 0.4) {
+      effects.push({ type: 'buff', text: '✨ 露娜莉亚被你的话语打动，攻势略微放缓', hue: 170 });
+    } else if (moodChange <= -0.4) {
+      effects.push({ type: 'debuff', text: '⚡ 露娜莉亚感到不悦，弹幕将变得更加密集', hue: 0 });
+    }
+    if (newMood <= 0) {
+      effects.push({ type: 'danger', text: '🔥 她已完全震怒！准备好迎接最猛烈的攻势！', hue: 0 });
+    } else if (newMood >= 5) {
+      effects.push({ type: 'miracle', text: '🌟 她沉醉于你的话语之中……弹幕变得如诗如画', hue: 170 });
+    }
+    if (Math.abs(moodChange) < 0.2) {
+      effects.push({ type: 'neutral', text: '💫 她的态度没有明显变化……', hue: 260 });
+    }
+    return effects;
+  }
+}
+
+// ═══════════════════════════════════════════
+//  背景渲染
+// ═══════════════════════════════════════════
+class Background {
+  constructor() {
+    this.stars = [];
+    this.nebulae = [];
+    this.generateStars();
+  }
+
+  generateStars() {
+    this.stars = [];
+    for (let i = 0; i < 180; i++) {
+      this.stars.push({
+        x: rand(0, W),
+        y: rand(0, H),
+        size: rand(0.4, 2.2),
+        twinkle: rand(0, TWO_PI),
+        twinkleSpeed: rand(1, 4),
+        hue: rand(220, 320),
+      });
+    }
+    // Nebula blobs
+    for (let i = 0; i < 4; i++) {
+      this.nebulae.push({
+        x: rand(0, W),
+        y: rand(0, H),
+        r: rand(80, 200),
+        hue: rand(250, 310),
+        alpha: rand(0.02, 0.06),
+      });
+    }
+  }
+
+  draw(ctx) {
+    // Deep space gradient
+    const bgGrad = ctx.createRadialGradient(W / 2, H * 0.2, 0, W / 2, H / 2, Math.max(W, H));
+    bgGrad.addColorStop(0, '#12102a');
+    bgGrad.addColorStop(0.5, '#0c0a1a');
+    bgGrad.addColorStop(1, '#06060f');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Nebulae
+    ctx.globalCompositeOperation = 'lighter';
+    for (const n of this.nebulae) {
+      const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r);
+      grad.addColorStop(0, hsl(n.hue, 60, 50, n.alpha));
+      grad.addColorStop(0.5, hsl(n.hue, 50, 30, n.alpha * 0.5));
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, TWO_PI); ctx.fill();
+    }
+
+    // Stars
+    const now = performance.now() * 0.001;
+    for (const s of this.stars) {
+      const twinkle = 0.4 + 0.6 * Math.sin(now * s.twinkleSpeed + s.twinkle);
+      ctx.fillStyle = hsl(s.hue, 40, 85, twinkle);
+      ctx.shadowColor = hsl(s.hue, 50, 70);
+      ctx.shadowBlur = s.size * 2;
+      ctx.fillRect(s.x - s.size / 2, s.y - s.size / 2, s.size, s.size);
+    }
+    ctx.shadowBlur = 0;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  resize() {
+    this.generateStars();
+  }
+}
+
+// ═══════════════════════════════════════════
+//  主游戏类
+// ═══════════════════════════════════════════
+class Game {
+  constructor() {
+    this.background = new Background();
+    this.player = new Player();
+    this.boss = new Boss(this);
+    this.bullets = new BulletManager();
+    this.particles = new ParticlePool();
+    this.dialogueAI = new DialogueAI();
+
+    this.state = 'TITLE'; // TITLE, PLAYING, DIALOGUE, DEAD
+    this.lives = CFG.maxLives;
+    this.survivalTime = 0;
+    this.dialogueCooldown = 0;
+    this.dialogueMessages = [];
+    this.activeEffects = [];
+    this.screenShake = 0;
+    this.screenFlash = 0;
+    this.groundY = H * 0.88;
+    this.totalConversations = 0;
+
+    this.input = { left: false, right: false, jump: false };
+
+    this.setupInput();
+    this.lastTime = performance.now();
+    this.running = false;
+  }
+
+  setupInput() {
+    window.addEventListener('keydown', e => {
+      if (this.state === 'DIALOGUE') {
+        if (e.key === 'Enter') { e.preventDefault(); this.sendDialogue(); }
+        return;
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.input.left = true;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.input.right = true;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+        e.preventDefault();
+        this.input.jump = true;
+      }
+      if (e.key === 'Enter' && this.state === 'TITLE') { e.preventDefault(); this.start(); }
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.input.left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.input.right = false;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+        this.input.jump = false;
+      }
+    });
+
+    // Touch on canvas for non-mobile-control areas
+    canvas.addEventListener('touchstart', e => {
+      if (this.state === 'DIALOGUE') return;
+      const touch = e.touches[0];
+      const tx = touch.clientX;
+      const ty = touch.clientY;
+      if (tx < W / 3) this.input.left = true;
+      else if (tx > W * 2 / 3) this.input.right = true;
+      if (ty < H * 0.6) this.input.jump = true;
+    }, { passive: true });
+    canvas.addEventListener('touchend', e => {
+      this.input.left = false;
+      this.input.right = false;
+      this.input.jump = false;
+    });
+    canvas.addEventListener('touchcancel', () => {
+      this.input.left = false;
+      this.input.right = false;
+      this.input.jump = false;
+    });
+  }
+
+  // ── 游戏流程控制 ──
+  start() {
+    document.getElementById('title-screen').classList.add('hidden');
+    document.getElementById('gameover-screen').classList.add('hidden');
+    this.resetGame();
+    this.state = 'PLAYING';
+    this.running = true;
+    this.lastTime = performance.now();
+    this.survivalTime = 0;
+    this.dialogueCooldown = CFG.dialogueInterval;
+    this.totalConversations = 0;
+    this.lives = CFG.maxLives;
+    this.updateHUD();
+    if (!this._loopStarted) {
+      this._loopStarted = true;
+      requestAnimationFrame(t => this.loop(t));
+    }
+  }
+
+  resetGame() {
+    this.player.reset();
+    this.boss.reset();
+    this.bullets.clear();
+    this.particles = new ParticlePool();
+    this.survivalTime = 0;
+    this.dialogueCooldown = CFG.dialogueInterval;
+    this.dialogueMessages = [];
+    this.activeEffects = [];
+    this.screenShake = 0;
+    this.screenFlash = 0;
+  }
+
+  respawn() {
+    if (this.lives <= 0) {
+      this.start();
+      return;
+    }
+    document.getElementById('gameover-screen').classList.add('hidden');
+    this.player.reset();
+    this.player.invulnTimer = CFG.invulnDuration;
+    this.bullets.clear();
+    this.screenShake = 0;
+    this.screenFlash = 0;
+    this.dialogueCooldown = Math.max(this.dialogueCooldown, 8);
+    this.state = 'PLAYING';
+
+    // Boss comments on respawn
+    const respawnLines = [
+      '哦？你又回来了……星辰从不轻易放过任何人，但你似乎有所不同。',
+      '回来了？看来你不甘于在这片虚空中沉寂。有趣。',
+      '再次升起——这说明你的灵魂里还有些许光芒。继续吧，让我看看你能走多远。',
+    ];
+    this.showBossMessage(pick(respawnLines));
+  }
+
+  die() {
+    this.lives--;
+    this.player.alive = false;
+    this.state = 'DEAD';
+    // Death particles
+    this.particles.emit(this.player.x, this.player.y, 50, {
+      angle: 0, spread: TWO_PI, speedMin: 60, speedMax: 250, lifeMin: 0.3, lifeMax: 1.0,
+      hue: 200, hueVar: 40, sizeMin: 1, sizeMax: 5, type: 'spark'
+    });
+    this.screenFlash = 0.5;
+
+    if (this.lives <= 0) {
+      document.getElementById('go-title').textContent = '永坠虚空';
+      document.getElementById('go-msg').textContent = `你存活了 ${Math.floor(this.survivalTime)} 秒，与露娜莉亚交谈了 ${this.totalConversations} 次。`;
+    } else {
+      document.getElementById('go-title').textContent = '星辰黯淡';
+      document.getElementById('go-msg').textContent = `剩余生命：${'✦'.repeat(this.lives)} — 你的光芒尚未完全熄灭`;
+    }
+    document.getElementById('gameover-screen').classList.remove('hidden');
+  }
+
+  // ── 对话 ──
+  startDialogue() {
+    this.state = 'DIALOGUE';
+    this.dialogueMessages = [];
+    const overlay = document.getElementById('dialogue-overlay');
+    const log = document.getElementById('dialogue-log');
+    const input = document.getElementById('dialogue-input');
+    overlay.classList.add('active');
+    log.innerHTML = '';
+    document.getElementById('boss-mood').textContent = `情绪：${this.boss.moodName}`;
+    document.getElementById('boss-mood').style.color = hsl(this.boss.moodHue, 70, 65);
+    input.value = '';
+    input.focus();
+
+    // Boss greeting
+    const greetings = [
+      '旅者，我们又见面了。这虚空之中，你可有什么想对我说的？',
+      '（露娜莉亚的星眸注视着你）说吧，凡人。你的话语将决定接下来的星辰如何流转。',
+      '暂停片刻吧……星光之下的对话，有时比战斗更有意义。你有什么想倾诉的吗？',
+    ];
+    this.addDialogueMessage('boss', pick(greetings));
+  }
+
+  addDialogueMessage(type, text) {
+    this.dialogueMessages.push({ type, text });
+    const log = document.getElementById('dialogue-log');
+    const div = document.createElement('div');
+    div.className = `msg ${type}`;
+    div.textContent = text;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  sendDialogue() {
+    const input = document.getElementById('dialogue-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    // Player message
+    this.addDialogueMessage('player', text);
+    input.value = '';
+
+    // AI analysis
+    const analysis = this.dialogueAI.analyze(text);
+    const moodChange = this.dialogueAI.calculateMoodChange(analysis, this.boss.mood);
+    const oldMood = this.boss.mood;
+    this.boss.mood = Math.max(0, Math.min(5, Math.round((this.boss.mood + moodChange) * 2) / 2));
+    // Use rounded mood for smoother transitions
+    this.boss.mood = Math.max(0, Math.min(5, Math.round(this.boss.mood + moodChange)));
+
+    // Update mood display
+    document.getElementById('boss-mood').textContent = `情绪：${this.boss.moodName}`;
+    document.getElementById('boss-mood').style.color = hsl(this.boss.moodHue, 70, 65);
+
+    // Get boss response
+    const response = this.dialogueAI.getResponse(text, analysis, this.boss.mood, this.dialogueAI.history);
+    this.dialogueAI.history.push({ player: text, analysis, moodChange, mood: this.boss.mood });
+
+    // Small delay for natural feel
+    setTimeout(() => {
+      this.addDialogueMessage('boss', response);
+
+      // Show gameplay effects
+      const effects = this.dialogueAI.getGameplayEffect(moodChange, this.boss.mood);
+      for (const eff of effects) {
+        this.addDialogueMessage('system', eff.text);
+      }
+
+      // Store effects for visual feedback when gameplay resumes
+      this.activeEffects = effects;
+
+      // End dialogue after response
+      setTimeout(() => this.endDialogue(), 1800);
+    }, 600 + Math.random() * 400);
+
+    this.totalConversations++;
+  }
+
+  endDialogue() {
+    document.getElementById('dialogue-overlay').classList.remove('active');
+    this.state = 'PLAYING';
+    this.dialogueCooldown = CFG.dialogueInterval;
+    this.dialogueMessages = [];
+    this.lastTime = performance.now(); // Reset dt to avoid time jump
+  }
+
+  showBossMessage(text) {
+    // Brief floating message from boss during gameplay
+    this.addDialogueMessage('boss', text);
+    // Auto-fade after 2.5s
+    setTimeout(() => {
+      const log = document.getElementById('dialogue-log');
+      if (log.lastChild && this.state === 'PLAYING') {
+        log.lastChild.style.opacity = '0';
+        log.lastChild.style.transition = 'opacity 0.5s';
+        setTimeout(() => { if (log.lastChild) log.lastChild.remove(); }, 500);
+      }
+    }, 2500);
+  }
+
+  // ── HUD更新 ──
+  updateHUD() {
+    document.getElementById('hud-lives').textContent = '✦'.repeat(Math.max(0, this.lives));
+    document.getElementById('hud-mood').innerHTML = `情绪 <span style="color:${hsl(this.boss.moodHue,70,65)}">${this.boss.moodName}</span>`;
+    document.getElementById('hud-time').textContent = `${Math.floor(this.survivalTime)}s`;
+  }
+
+  // ── 碰撞检测 ──
+  checkCollisions() {
+    for (const b of this.bullets.bullets) {
+      if (b.alive && this.player.hit(b)) {
+        b.alive = false;
+        this.player.alive = false;
+        this.screenShake = Math.max(this.screenShake, 8);
+        this.screenFlash = 0.4;
+        this.particles.emit(this.player.x, this.player.y, 20, {
+          angle: 0, spread: TWO_PI, speedMin: 30, speedMax: 120, lifeMin: 0.1, lifeMax: 0.4,
+          hue: 0, hueVar: 20, sizeMin: 2, sizeMax: 5, type: 'spark'
+        });
+        this.die();
+        return;
+      }
+    }
+  }
+
+  // ── 主循环 ──
+  loop(timestamp) {
+    if (!this.running) {
+      requestAnimationFrame(t => this.loop(t));
+      return;
+    }
+
+    let dt = (timestamp - this.lastTime) / 1000;
+    if (dt <= 0) dt = 0.016;
+    if (dt > 0.1) dt = 0.1; // Cap to avoid physics explosion on tab switch
+    this.lastTime = timestamp;
+
+    if (this.state === 'PLAYING') {
+      this.survivalTime += dt;
+      this.dialogueCooldown -= dt;
+
+      // Trigger dialogue
+      if (this.dialogueCooldown <= 0 && this.player.alive) {
+        this.startDialogue();
+        requestAnimationFrame(t => this.loop(t));
+        return;
+      }
+
+      // Update game objects
+      this.player.update(dt, this.input, this.particles, this.groundY);
+      this.boss.update(dt, this.bullets, this.particles);
+      this.bullets.update(dt);
+      this.particles.update(dt);
+      this.checkCollisions();
+
+      // Screen effects decay
+      this.screenShake *= Math.pow(0.05, dt);
+      if (this.screenShake < 0.1) this.screenShake = 0;
+      this.screenFlash *= Math.pow(0.02, dt);
+      if (this.screenFlash < 0.01) this.screenFlash = 0;
+
+      // Update HUD periodically
+      if (Math.floor(this.survivalTime) !== Math.floor(this.survivalTime - dt)) {
+        this.updateHUD();
+      }
+    }
+
+    this.render();
+    requestAnimationFrame(t => this.loop(t));
+  }
+
+  render() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Screen shake offset
+    let shakeX = 0, shakeY = 0;
+    if (this.screenShake > 0.05) {
+      shakeX = (Math.random() - 0.5) * this.screenShake * 2;
+      shakeY = (Math.random() - 0.5) * this.screenShake * 2;
+    }
+
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
+    // Background
+    this.background.draw(ctx);
+
+    // Boss pattern overlays (under bullets)
+    this.boss.drawPatternOverlay(ctx);
+
+    // Bullets
+    this.bullets.draw(ctx);
+
+    // Boss
+    this.boss.draw(ctx);
+
+    // Player (only if alive or during gameplay)
+    if (this.player.alive || this.state === 'DEAD') {
+      this.player.draw(ctx);
+    }
+
+    // Particles
+    this.particles.draw(ctx);
+
+    ctx.restore();
+
+    // ── Screen flash overlay ──
+    if (this.screenFlash > 0.01) {
+      ctx.fillStyle = `rgba(255,255,255,${this.screenFlash})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ── Active effects display ──
+    if (this.activeEffects.length > 0 && this.state === 'PLAYING') {
+      // Effects shown briefly on HUD area
+      const now = performance.now() * 0.001;
+      for (let i = 0; i < this.activeEffects.length; i++) {
+        const eff = this.activeEffects[i];
+        ctx.fillStyle = hsl(eff.hue, 70, 75, 0.85);
+        ctx.font = '13px "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(eff.text, W / 2, H * 0.12 + i * 20);
+      }
+      // Clear effects after 3s
+      if (!this._effectTimer) {
+        this._effectTimer = setTimeout(() => { this.activeEffects = []; this._effectTimer = null; }, 3000);
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+//  启动
+// ═══════════════════════════════════════════
+const game = new Game();
+
+// Start background rendering immediately for visual appeal
+function preRender() {
+  if (game.running) return;
+  game.background.draw(ctx);
+  // Draw title screen stars
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const now = performance.now() * 0.001;
+  for (let i = 0; i < 30; i++) {
+    const x = (Math.sin(now * 0.3 + i * 1.7) * 0.5 + 0.5) * W;
+    const y = (Math.cos(now * 0.4 + i * 2.1) * 0.5 + 0.5) * H;
+    const twinkle = 0.5 + 0.5 * Math.sin(now * 2 + i);
+    ctx.fillStyle = hsl(260 + i * 2, 60, 80, twinkle * 0.7);
+    ctx.beginPath(); ctx.arc(x, y, rand(1, 3), 0, TWO_PI); ctx.fill();
+  }
+  ctx.restore();
+  requestAnimationFrame(() => preRender());
+}
+preRender();
+</script>
+</body>
+</html>
