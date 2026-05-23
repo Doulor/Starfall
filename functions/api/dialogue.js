@@ -6,7 +6,7 @@ const DEFAULT_MAX_TOKENS = 420;
 const ALLOWED_ACTIONS = new Set([
   'mercy', 'clear', 'petal', 'wave', 'chase', 'laser', 'gravity',
   'fragments', 'burst', 'punish', 'spiral', 'rain', 'corner', 'crossfire', 'sniper', 'bomb',
-  'angle', 'ricochet'
+  'angle', 'ricochet', 'orbit', 'mirror', 'sweep', 'mine'
 ]);
 const ALLOWED_REWARDS = new Set(['none', 'shield']);
 const ALLOWED_EXPRESSIONS = new Set(['neutral', 'smile', 'annoyed', 'curious', 'sad', 'surprised']);
@@ -46,7 +46,7 @@ function buildSystemPrompt(game) {
 {
   "text": "Luna 的中文回复，默认只写1句，最多不超过2句，自然、灵动、不要中二",
   "moodDelta": -2到2的整数,
-  "action": "mercy|clear|petal|wave|chase|laser|gravity|fragments|burst|punish|spiral|rain|corner|crossfire|sniper|bomb|angle|ricochet",
+  "action": "mercy|clear|petal|wave|chase|laser|gravity|fragments|burst|punish|spiral|rain|corner|crossfire|sniper|bomb|angle|ricochet|orbit|mirror|sweep|mine",
   "chat": {
     "continue": true或false,
     "extraTurns": 0到2,
@@ -72,9 +72,9 @@ function buildSystemPrompt(game) {
 - 玩家真诚、道歉、关心你、问你是否孤独：moodDelta 正向，可能 continue，可能 reward shield 或 clear。
 - 玩家问星门、职责、过去、选择：推进 story，使用 petal/wave/gravity，回复应给出一点线索；当 Luna 已信任玩家且剧情足够推进时，必须设置 story.openGate=true 来打开场上的星门；只有星门已打开后，才提示玩家进入星门。
 - 玩家请求放水或说太难：使用 mercy 或 clear，可给护盾。
-- 玩家要求更刺激：使用 chase/burst/gravity/corner/crossfire/sniper/bomb，但不要恶意。
-- 玩家辱骂、挑衅、敷衍：moodDelta 负向，使用 punish/laser/fragments/corner/crossfire/sniper/bomb，通常不继续聊天。
-- 如果玩家一直躲角落或提到躲角落，可以使用 corner 从角落向内压迫；如果玩家移动很稳，可以用 crossfire 夹击、sniper 预警狙击、bomb 预警区域爆炸，或 angle/ricochet 做斜线压迫。
+- 玩家要求更刺激：使用 chase/burst/gravity/corner/crossfire/sniper/bomb/orbit/mirror/sweep/mine，但不要恶意。
+- 玩家辱骂、挑衅、敷衍：moodDelta 负向，使用 punish/laser/fragments/corner/crossfire/sniper/bomb/mirror/mine/orbit，通常不继续聊天。
+- 如果玩家一直躲角落或提到躲角落，可以使用 corner 从角落向内压迫；如果玩家移动很稳，可以用 crossfire 夹击、sniper 预警狙击、bomb/mine 预警区域爆炸，orbit 包围压迫，mirror 左右夹击，sweep 月弧扫射，或 angle/ricochet 做斜线压迫。
 - bossQuestion 默认留空，前端默认只展示 text；好感越高，Luna 越活泼、愿意多聊、越可能给护盾；好感越低，对话越短。
 最后检查：输出必须是唯一的 JSON object，不能包含代码围栏、说明文字或任何 JSON 外字符。`;
 }
