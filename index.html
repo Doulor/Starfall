@@ -191,8 +191,9 @@
     width: min(94vw, 620px); max-height: 82dvh; overflow: auto; z-index: 32;
     padding: 18px; border-radius: 18px; background: var(--panel-bg);
     border: 1px solid rgba(167,139,250,.34); box-shadow: 0 0 46px rgba(70,60,160,.28);
-    backdrop-filter: blur(18px); display: flex; flex-direction: column; gap: 12px;
+    backdrop-filter: blur(18px); display: none; flex-direction: column; gap: 12px; pointer-events: none;
   }
+  #leaderboard-panel.show { display: flex; pointer-events: auto; }
   #leaderboard-panel h3 { color: #eadfff; font-size: 16px; }
   #leaderboard-tabs .btn.active { background: rgba(125,211,252,.18); border-color: rgba(125,211,252,.42); }
   #leaderboard-list { display: flex; flex-direction: column; gap: 8px; }
@@ -218,7 +219,6 @@
   <div id="title-buttons" class="button-row">
     <button class="btn" onclick="game.showModeSelect()">开始试炼</button>
     <button class="btn small plain" onclick="game.showLeaderboard('normal')">排行榜</button>
-    <button class="btn small plain" onclick="game.renameDevice()">修改本机名称</button>
     <button class="btn small plain" onclick="game.toggleAIConfig()">AI 与声音设置</button>
   </div>
   <div id="mode-select">
@@ -307,7 +307,7 @@
   </div>
 </div>
 
-<div id="leaderboard-panel" class="hidden">
+<div id="leaderboard-panel">
   <h3>星门排行榜</h3>
   <div id="leaderboard-tabs" class="button-row" style="justify-content:flex-start;">
     <button id="lb-tab-normal" class="btn small" onclick="game.showLeaderboard('normal')">普通</button>
@@ -315,7 +315,8 @@
     <button id="lb-tab-infinite" class="btn small" onclick="game.showLeaderboard('infinite')">无限</button>
   </div>
   <div id="leaderboard-list">正在载入…</div>
-  <div class="button-row" style="justify-content:flex-end;">
+  <div class="button-row" style="justify-content:space-between;">
+    <button class="btn small plain" onclick="game.renameDevice()">修改本机名称</button>
     <button class="btn small plain" onclick="game.hideLeaderboard()">关闭</button>
   </div>
 </div>
@@ -415,10 +416,10 @@ function makeUuid(){
 
 const RunStore = {
   getDeviceId(){ let id=localStorage.getItem('sf_device_id'); if(!id){ id=makeUuid(); localStorage.setItem('sf_device_id',id); } return id; },
-  cleanDeviceName(name){ return String(name||'').replace(/[<>]/g,'').replace(/[ -]/g,' ').trim().slice(0,18); },
+  cleanDeviceName(name){ return String(name||'').replace(/[<>]/g,'').split('').filter(ch=>{const c=ch.charCodeAt(0);return c>=32&&c!==127;}).join('').trim().slice(0,18); },
   defaultDeviceName(){ return `星旅者 ${this.getDeviceId().replace(/-/g,'').slice(-6)}`; },
   getDeviceName(){ return this.cleanDeviceName(localStorage.getItem('sf_device_name'))||this.defaultDeviceName(); },
-  setDeviceName(name){ const clean=this.cleanDeviceName(name); if(clean)localStorage.setItem('sf_device_name',clean); return this.getDeviceName(); },
+  cleanDeviceName(name){ return String(name||'').replace(/[<>]/g,'').split('').filter(ch=>{const c=ch.charCodeAt(0);return c>=32&&c!==127;}).join('').trim().slice(0,18); },
   getHistory(){ try{ const v=JSON.parse(localStorage.getItem('sf_run_history')||'[]'); return Array.isArray(v)?v:[]; }catch(_){ return []; } },
   setHistory(items){ localStorage.setItem('sf_run_history',JSON.stringify((Array.isArray(items)?items:[]).slice(-80))); },
   getBests(){ try{ const v=JSON.parse(localStorage.getItem('sf_mode_bests')||'{}'); return v&&typeof v==='object'?v:{}; }catch(_){ return {}; } },
@@ -664,8 +665,8 @@ class Game {
   localCompareText(compare){ if(compare.isNewBest)return '本机新纪录：这次星光比以往更亮。'; const parts=[]; if(compare.timeDelta<0)parts.push(`距离本机最佳还差 ${Math.abs(compare.timeDelta)} 秒`); if(compare.dodgeDelta<0)parts.push(`少闪避 ${Math.abs(compare.dodgeDelta)} 枚弹幕`); return parts.length?parts.join('，'):'追平了本机历史最佳。'; }
   renderRunSummaryCard(summary,compare,uploadResult={}){ const box=document.getElementById('run-summary-card'); if(!box)return; const cfg=CFG.modes[summary.mode]||CFG.modes.normal,status=uploadResult.status==='uploading'?'上传中…':uploadResult.ok?'已同步到星门记录':'同步失败，本机已保存'; const outcome=summary.outcome==='victory'?'星门通关':'试炼结束'; box.classList.remove('hidden'); box.innerHTML=`<div class="summary-head"><div><div class="summary-title">${outcome} · ${cfg.label}</div><div class="summary-sub">${summary.deviceName||RunStore.getDeviceName()} · Run ${summary.runId.slice(0,8)}</div></div><div class="summary-badge">${status}</div></div><div class="summary-grid"><div class="summary-stat"><div class="label">存活时间</div><div class="value">${this.formatTime(summary.survivalTime)}</div></div><div class="summary-stat"><div class="label">最高等级</div><div class="value">Lv.${summary.highestLevel}</div></div><div class="summary-stat"><div class="label">XP</div><div class="value">${summary.xp}</div></div><div class="summary-stat"><div class="label">闪避弹幕</div><div class="value">${summary.bulletsDodged}</div></div><div class="summary-stat"><div class="label">命中次数</div><div class="value">${summary.bulletsHit}</div></div><div class="summary-stat"><div class="label">总弹幕</div><div class="value">${summary.bulletsSpawned}</div></div></div><div class="summary-note ${compare.isNewBest?'good':'warn'}">${this.localCompareText(compare)}</div><div class="summary-note" id="run-upload-note">${status}</div><div class="summary-actions"><button class="btn small" onclick="game.showLeaderboard('${summary.mode}')">查看本模式排行榜</button></div>`; }
   updateRunSummaryCardUpload(result){ const badge=document.querySelector('#run-summary-card .summary-badge'),note=document.getElementById('run-upload-note'); const text=result.ok?`已同步 · 设备累计闪避 ${result.device?.totalBulletsDodged||0} 枚弹幕`:(result.error||'同步失败，本机已保存'); if(badge)badge.textContent=result.ok?'已同步':'同步失败'; if(note)note.textContent=text; }
-  async showLeaderboard(mode=this.mode||'normal'){ const panel=document.getElementById('leaderboard-panel'),list=document.getElementById('leaderboard-list'); if(!panel||!list)return; panel.classList.remove('hidden'); for(const m of ['normal','hard','infinite'])document.getElementById(`lb-tab-${m}`)?.classList.toggle('active',m===mode); list.textContent='正在载入…'; try{ const r=await fetch(`/api/leaderboards?mode=${encodeURIComponent(mode)}&limit=20`); const data=await r.json(); if(!r.ok||data.ok===false)throw new Error(data.error||'排行榜暂时不可用'); this.renderLeaderboard(mode,data.items||[]); }catch(e){ list.innerHTML=`<div class="summary-note warn">排行榜暂时不可用：${e.message||'请稍后再试'}。本机记录仍会保存。</div>`; } }
-  hideLeaderboard(){ document.getElementById('leaderboard-panel')?.classList.add('hidden'); }
+  async showLeaderboard(mode=this.mode||'normal'){ const panel=document.getElementById('leaderboard-panel'),list=document.getElementById('leaderboard-list'); if(!panel||!list)return; panel.classList.add('show'); for(const m of ['normal','hard','infinite'])document.getElementById(`lb-tab-${m}`)?.classList.toggle('active',m===mode); list.textContent='正在载入…'; try{ const r=await fetch(`/api/leaderboards?mode=${encodeURIComponent(mode)}&limit=20`); const data=await r.json(); if(!r.ok||data.ok===false)throw new Error(data.error||'排行榜暂时不可用'); this.renderLeaderboard(mode,data.items||[]); }catch(e){ list.innerHTML=`<div class="summary-note warn">排行榜暂时不可用：${e.message||'请稍后再试'}。本机记录仍会保存。</div>`; } }
+  hideLeaderboard(){ document.getElementById('leaderboard-panel')?.classList.remove('show'); }
   renderLeaderboard(mode,items){ const list=document.getElementById('leaderboard-list'); if(!list)return; const current=RunStore.getDeviceId(); if(!items.length){ list.innerHTML='<div class="summary-note">这个模式还没有记录。</div>'; return; } list.innerHTML=items.map(item=>`<div class="leaderboard-row ${item.deviceId===current?'me':''}"><div class="leaderboard-rank">#${item.rank}</div><div><div class="leaderboard-main">${item.deviceName||item.displayId||'星旅者'} ${item.bestOutcome==='victory'?'· 通关':''}</div><div class="leaderboard-meta">累计 ${item.totalRuns||0} 局 · 总闪避 ${item.totalBulletsDodged||0}</div></div><div class="leaderboard-score">${this.formatTime(item.bestSurvivalTime||0)}<br>Lv.${item.bestHighestLevel||1} · ${item.bestBulletsDodged||0}闪避</div></div>`).join(''); }
   startDeathSequence(fallen,title,msg){ this.state='DEAD'; this.deathAnimTimer=0; this.deathScreenShown=false; this.deathBursts=fallen.map(p=>({x:p.x,y:p.y,hue:p.trailHue||200})); document.getElementById('gameover-screen').classList.add('hidden'); if(!this.runFinalized)document.getElementById('run-summary-card')?.classList.add('hidden'); this.prepareGameOver(title,msg,this.lives>0?'凝聚星光':'重回开始'); this.bullets.clear(); this.pickups.items.length=0; for(const b of this.deathBursts){ this.particles.emit(b.x,b.y,84,{angle:0,spread:TWO_PI,speedMin:45,speedMax:270,lifeMin:.45,lifeMax:1.55,hue:b.hue,hueVar:60,sizeMin:2,sizeMax:7,type:'star'}); this.particles.emit(b.x,b.y,48,{angle:0,spread:TWO_PI,speedMin:18,speedMax:155,lifeMin:.35,lifeMax:1.1,hue:b.hue+28,hueVar:45,sizeMin:1,sizeMax:4,type:'spark'}); } SFX.die(); this.updateHUD(); }
   updateDeathAnimation(dt){ this.deathAnimTimer+=dt; for(const b of this.deathBursts){ if(this.deathAnimTimer<1.25&&Math.random()<.72*this.performanceScale){ const a=rand(0,TWO_PI),r=rand(6,46),x=b.x+Math.cos(a)*r,y=b.y+Math.sin(a)*r; this.particles.emit(x,y,1,{angle:a,spread:.38,speedMin:42,speedMax:150,lifeMin:.35,lifeMax:1.05,hue:b.hue+rand(-30,50),hueVar:20,sizeMin:2,sizeMax:5,type:'star'}); } } this.particles.update(dt); if(!this.deathScreenShown&&this.deathAnimTimer>=.9){ this.deathScreenShown=true; document.getElementById('gameover-screen').classList.remove('hidden'); } }
@@ -705,7 +706,7 @@ class Game {
   shouldContinueDialogue(result){ return this.dialogueTurn<this.maxDialogueTurns; }
   forceEndDialogue(){ this.endDialogue(); }
   endDialogue(){ const result=this.pendingDialogueResult||{action:'wave',gameplay:{}}; this.boss.applyDialogueBehavior(result.action||'wave',result.gameplay||{}); document.getElementById('dialogue-overlay').classList.remove('active'); this.state='PLAYING'; this.dialogueCooldown=this.dialogueIntervalForMood(); this.lastTime=performance.now(); SFX.dialogueClose(); }
-  backToTitle(){ this.running=false; this.state='TITLE'; this.input={left:false,right:false,up:false,down:false,focus:false}; this.input2={left:false,right:false,up:false,down:false,focus:false}; document.getElementById('gameover-screen').classList.add('hidden'); document.getElementById('dialogue-overlay').classList.remove('active'); document.getElementById('leaderboard-panel').classList.add('hidden'); document.getElementById('title-screen').classList.remove('hidden'); this.hideModeSelect(); }
+  backToTitle(){ this.running=false; this.state='TITLE'; this.input={left:false,right:false,up:false,down:false,focus:false}; this.input2={left:false,right:false,up:false,down:false,focus:false}; document.getElementById('gameover-screen').classList.add('hidden'); document.getElementById('dialogue-overlay').classList.remove('active'); document.getElementById('leaderboard-panel').classList.remove('show'); document.getElementById('title-screen').classList.remove('hidden'); this.hideModeSelect(); }
   showSystemLine(text){ this.systemLines.push({text,life:3,hue:190}); }
   die(){ if(this.state==='VICTORY')return; const final=this.recordRunDeath(); this.player.alive=false; if(final){ this.finalizeRun('death'); this.startDeathSequence([this.player],this.mode==='infinite'?'无限试炼结束':'挑战失败',this.formatEndStats(this.mode==='infinite'?'无限试炼结束：你已经经历了 3 次死亡。':'星光彻底黯淡，试炼暂时结束。')); } else this.startDeathSequence([this.player],'护光熄灭',this.mode==='infinite'?`剩余死亡次数：${this.lives}`:`剩余生命：${this.lives}`); }
   checkCollisions(){ for(const b of this.bullets.bullets){ for(const p of this.players){ if(p.hit(b)){ b.alive=false; if(this.stats)this.stats.bulletsHit++; this.player=p; if(p.consumeShield(this)){ this.showSystemLine(`P${p.id} 的护盾挡下了一次攻击。`); return; } SFX.hit(); if(this.playerCount===2)this.handlePlayerDowned(p); else this.die(); return; } } } }
