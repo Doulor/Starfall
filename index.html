@@ -83,6 +83,8 @@
   #ai-config .row > div { flex: 1; }
   #ai-config .note { color: rgba(216,222,248,.45); font-size: 11px; line-height: 1.55; }
   #memory-history, #memory-summary { max-height: 120px; overflow-y: auto; padding: 8px; border-radius: 9px; background: rgba(255,255,255,.035); color: rgba(216,222,248,.72); font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
+  #ai-config .memory-toggle { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; color: #eef1ff; font-size: 13px; cursor: pointer; }
+  #ai-config .memory-toggle input { width: 18px; height: 18px; flex: 0 0 auto; padding: 0; margin: 0; accent-color: var(--accent); cursor: pointer; }
 
   #hud {
     position: absolute; top: 12px; left: 14px; right: 14px; z-index: 5;
@@ -226,7 +228,7 @@
     </div>
   </div>
   <div>
-    <label><input id="ai-memory-enabled" type="checkbox"> 跨局保存聊天记忆</label>
+    <label class="memory-toggle" for="ai-memory-enabled"><input id="ai-memory-enabled" type="checkbox"> <span>跨局保存聊天记忆</span></label>
     <p class="note">开启后，Luna 会在下一局继续参考你的聊天记忆；记忆只保存在本机浏览器。</p>
   </div>
   <div>
