@@ -29,7 +29,7 @@ async function fetchLeaderboard(env, mode, limit) {
   }
   const params = new URLSearchParams();
   params.set('mode', `eq.${mode}`);
-  params.set('select', 'mode,device_id,best_run_id,best_survival_time,best_highest_level,best_bullets_dodged,best_outcome,total_runs,total_bullets_dodged,updated_at');
+  params.set('select', 'mode,device_id,device_name,best_run_id,best_survival_time,best_highest_level,best_bullets_dodged,best_outcome,total_runs,total_bullets_dodged,updated_at');
   params.set('order', 'best_survival_time.desc,best_bullets_dodged.desc,best_highest_level.desc,updated_at.asc');
   params.set('limit', String(limit));
   const response = await fetch(`${url}/rest/v1/mode_leaderboards?${params.toString()}`, {
@@ -61,6 +61,7 @@ export async function onRequest(context) {
       rank: index + 1,
       mode: item.mode,
       deviceId: item.device_id,
+      deviceName: String(item.device_name || '').trim().slice(0, 18) || maskDeviceId(item.device_id),
       displayId: maskDeviceId(item.device_id),
       bestRunId: item.best_run_id,
       bestSurvivalTime: Number(item.best_survival_time || 0),
