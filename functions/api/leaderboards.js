@@ -16,9 +16,9 @@ function clampInt(value, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-function maskDeviceId(id) {
+function maskDeviceId(id, language = 'zh-CN') {
   const clean = String(id || '').replace(/-/g, '');
-  return `星旅者 ${clean.slice(-6) || '??????'}`;
+  return `${language === 'en' ? 'Starfarer' : '星旅者'} ${clean.slice(-6) || '??????'}`;
 }
 
 async function fetchLeaderboard(env, mode, limit) {
@@ -51,6 +51,7 @@ export async function onRequest(context) {
   const url = new URL(context.request.url);
   const mode = url.searchParams.get('mode') || 'normal';
   const limit = clampInt(url.searchParams.get('limit') || '20', 1, 50);
+  const language = url.searchParams.get('language') === 'en' ? 'en' : 'zh-CN';
   if (!ALLOWED_MODES.has(mode)) return json({ ok: false, error: 'Invalid mode' }, 400);
   try {
     const result = await fetchLeaderboard(context.env, mode, limit);
@@ -61,8 +62,8 @@ export async function onRequest(context) {
       rank: index + 1,
       mode: item.mode,
       deviceId: item.device_id,
-      deviceName: String(item.device_name || '').trim().slice(0, 18) || maskDeviceId(item.device_id),
-      displayId: maskDeviceId(item.device_id),
+      deviceName: String(item.device_name || '').trim().slice(0, 18) || maskDeviceId(item.device_id, language),
+      displayId: maskDeviceId(item.device_id, language),
       bestRunId: item.best_run_id,
       bestSurvivalTime: Number(item.best_survival_time || 0),
       bestHighestLevel: Number(item.best_highest_level || 1),
