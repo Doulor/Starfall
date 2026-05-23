@@ -6,213 +6,232 @@
 <title>星碎 · Starfall</title>
 <style>
   :root {
-    --bg: #0a0a14;
-    --panel-bg: rgba(10, 10, 30, 0.92);
-    --text: #c8c8e0;
+    --bg: #070713;
+    --panel-bg: rgba(10, 11, 32, 0.92);
+    --text: #d8def8;
+    --muted: rgba(216, 222, 248, 0.62);
     --accent: #a78bfa;
     --accent2: #7dd3fc;
-    --danger: #f87171;
-    --gold: #fbbf24;
+    --danger: #fb7185;
+    --good: #86efac;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
   body {
-    background: var(--bg);
-    overflow: hidden;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    height: 100dvh;
-    width: 100vw;
+    width: 100vw; height: 100dvh; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none;
   }
+  canvas { position: absolute; inset: 0; display: block; }
 
-  canvas { display: block; position: absolute; top: 0; left: 0; }
+  .hidden { display: none !important; }
+  .btn {
+    padding: 11px 28px; border-radius: 999px;
+    border: 1px solid rgba(167,139,250,0.42);
+    background: rgba(167,139,250,0.12); color: #ebe6ff;
+    font-size: 14px; cursor: pointer; letter-spacing: 0.04em;
+    transition: transform .15s, background .2s, box-shadow .2s;
+    pointer-events: auto;
+  }
+  .btn:hover { background: rgba(167,139,250,0.2); box-shadow: 0 0 22px rgba(167,139,250,.22); }
+  .btn:active { transform: scale(.97); }
+  .btn.small { padding: 7px 16px; font-size: 12px; }
+  .btn.plain { background: rgba(255,255,255,.055); border-color: rgba(255,255,255,.12); }
 
-  /* ── AI Config Panel ── */
+  #title-screen, #gameover-screen {
+    position: absolute; inset: 0; z-index: 20;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 26px; text-align: center;
+    background: radial-gradient(circle at 50% 28%, rgba(80,62,160,.28), rgba(7,7,19,.86) 52%, rgba(7,7,19,.96));
+    backdrop-filter: blur(4px); pointer-events: auto;
+  }
+  #title-screen h1 {
+    font-size: clamp(34px, 7vw, 58px); font-weight: 300; letter-spacing: .16em;
+    color: #ece7ff; text-shadow: 0 0 36px rgba(167,139,250,.62), 0 0 80px rgba(125,211,252,.24);
+  }
+  .subtitle { font-size: 12px; color: rgba(216,222,248,.52); letter-spacing: .28em; margin-top: -12px; }
+  .story-card {
+    width: min(720px, 92vw); padding: 18px 22px; border-radius: 18px;
+    background: rgba(11, 13, 38, .58); border: 1px solid rgba(167,139,250,.22);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 0 40px rgba(70,60,160,.13);
+    color: rgba(230,235,255,.82); font-size: 14px; line-height: 1.78; text-align: left;
+  }
+  .story-card strong { color: #e9ddff; font-weight: 600; }
+  .story-card .hint { margin-top: 10px; color: rgba(186,230,253,.8); font-size: 12px; }
+  .button-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
   #ai-config {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    width: min(88vw, 440px);
-    background: var(--panel-bg);
-    border: 1px solid rgba(167,139,250,0.3);
-    border-radius: 16px; padding: 20px 24px;
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    box-shadow: 0 0 40px rgba(167,139,250,0.15);
-    z-index: 25; display: none; flex-direction: column; gap: 14px;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(92vw, 500px); z-index: 30; display: none; flex-direction: column; gap: 13px;
+    padding: 20px 22px; border-radius: 16px; background: var(--panel-bg);
+    border: 1px solid rgba(167,139,250,.32); box-shadow: 0 0 42px rgba(70,60,160,.24);
+    backdrop-filter: blur(18px);
   }
   #ai-config.show { display: flex; }
-  #ai-config h3 { color: #d8ceff; font-size: 15px; font-weight: 600; }
-  #ai-config label { color: rgba(200,200,224,0.7); font-size: 11px; display: block; margin-bottom: 4px; }
-  #ai-config input[type="text"], #ai-config input[type="password"] {
-    width: 100%; padding: 8px 12px;
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 8px; color: #e0e0f0; font-size: 13px; outline: none; font-family: inherit;
+  #ai-config h3 { font-size: 16px; color: #eadfff; }
+  #ai-config label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 11px; }
+  #ai-config input, #ai-config select {
+    width: 100%; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06);
+    color: #eef1ff; outline: none; font-family: inherit; font-size: 13px;
   }
-  #ai-config input:focus { border-color: rgba(167,139,250,0.5); }
+  #ai-config option { background: #111326; color: #eef1ff; }
   #ai-config .row { display: flex; gap: 10px; }
-  #ai-config .row > * { flex: 1; }
-  #ai-config .toggle-row { display: flex; align-items: center; justify-content: space-between; }
-  #ai-config .toggle {
-    width: 44px; height: 24px; border-radius: 12px; background: rgba(255,255,255,0.1);
-    cursor: pointer; position: relative; transition: background 0.3s;
-  }
-  #ai-config .toggle.on { background: #7c3aed; }
-  #ai-config .toggle::after {
-    content: ''; position: absolute; top: 2px; left: 2px;
-    width: 20px; height: 20px; border-radius: 50%; background: #fff;
-    transition: transform 0.3s;
-  }
-  #ai-config .toggle.on::after { transform: translateX(20px); }
-  #ai-config .btn-row { display: flex; gap: 10px; justify-content: flex-end; }
+  #ai-config .row > div { flex: 1; }
+  #ai-config .note { color: rgba(216,222,248,.45); font-size: 11px; line-height: 1.55; }
 
-  /* ── Dialogue Overlay ── */
+  #hud {
+    position: absolute; top: 12px; left: 14px; right: 14px; z-index: 5;
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; pointer-events: none;
+  }
+  .hud-group { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .hud-group.center { justify-content: center; }
+  .hud-group.right { justify-content: flex-end; }
+  .hud-item { font-size: 12px; color: rgba(216,222,248,.68); text-shadow: 0 0 10px rgba(167,139,250,.35); }
+  .hud-item span { color: #edf0ff; font-weight: 600; }
+
   #dialogue-overlay {
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    display: none; flex-direction: column; justify-content: flex-end;
-    align-items: center; padding-bottom: 20px; pointer-events: none; z-index: 10;
+    position: absolute; inset: 0; z-index: 10; display: none;
+    align-items: flex-end; justify-content: center; padding: 16px;
+    pointer-events: none;
   }
   #dialogue-overlay.active { display: flex; pointer-events: auto; }
-
   #dialogue-panel {
-    width: min(92vw, 600px);
-    background: var(--panel-bg);
-    border: 1px solid rgba(167,139,250,0.3);
-    border-radius: 16px; padding: 16px 20px;
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    box-shadow: 0 0 40px rgba(167,139,250,0.15), inset 0 1px 0 rgba(255,255,255,0.04);
-    display: flex; flex-direction: column; gap: 12px;
-    max-height: 60dvh;
-    animation: panelIn 0.4s cubic-bezier(0.16,1,0.3,1);
+    width: min(94vw, 660px); max-height: 72dvh;
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 15px 18px; border-radius: 16px; background: var(--panel-bg);
+    border: 1px solid rgba(167,139,250,.34);
+    box-shadow: 0 0 44px rgba(80,70,170,.23), inset 0 1px 0 rgba(255,255,255,.05);
+    backdrop-filter: blur(18px); animation: panelIn .25s cubic-bezier(.16,1,.3,1);
   }
-  @keyframes panelIn { from { opacity:0; transform:translateY(30px) scale(0.96); } to { opacity:1; transform:translateY(0) scale(1); } }
-
+  @keyframes panelIn { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
   #boss-portrait { display: flex; align-items: center; gap: 12px; }
-  #boss-icon {
-    width: 44px; height: 44px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #e0d5ff, #7c3aed 70%, #4c1d95);
-    box-shadow: 0 0 20px rgba(167,139,250,0.5); flex-shrink: 0;
+  #boss-icon { width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #b7a7ff 36%, #7c3aed 76%, #312e81); box-shadow: 0 0 24px rgba(167,139,250,.52); }
+  #boss-name { font-size: 15px; font-weight: 600; color: #ece7ff; }
+  #boss-mood { font-size: 12px; color: #b7a7ff; }
+  #dialogue-hint {
+    color: rgba(186,230,253,.86); font-size: 12px; line-height: 1.55;
+    padding: 9px 11px; border-radius: 10px; background: rgba(125,211,252,.07);
+    border: 1px solid rgba(125,211,252,.12);
   }
-  #boss-name { font-size: 15px; font-weight: 600; color: #d8ceff; letter-spacing: 0.02em; }
-  #boss-mood { font-size: 12px; color: #a78bfa; transition: color 0.6s; }
-
-  #dialogue-log { flex: 1; overflow-y: auto; max-height: 250px; display: flex; flex-direction: column; gap: 8px; padding-right: 6px; }
+  #suggestions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .suggestion {
+    border: 1px solid rgba(167,139,250,.24); border-radius: 999px;
+    background: rgba(167,139,250,.09); color: rgba(235,230,255,.82);
+    padding: 5px 10px; font-size: 11px; cursor: pointer;
+  }
+  #dialogue-log { overflow-y: auto; max-height: 250px; display: flex; flex-direction: column; gap: 8px; padding-right: 5px; }
   #dialogue-log::-webkit-scrollbar { width: 3px; }
-  #dialogue-log::-webkit-scrollbar-thumb { background: rgba(167,139,250,0.3); border-radius: 4px; }
-
-  .msg { padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; animation: msgIn 0.3s ease; }
-  @keyframes msgIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:translateX(0); } }
-  .msg.boss   { background: rgba(167,139,250,0.12); color: #d8ceff; align-self: flex-start; border-top-left-radius: 2px; }
-  .msg.player { background: rgba(125,211,252,0.1);  color: #bae6fd; align-self: flex-end;   border-top-right-radius: 2px; }
-  .msg.system { background: rgba(251,191,36,0.08);  color: #fcd34d; align-self: center;     font-size: 11px; border-radius: 6px; }
-
+  #dialogue-log::-webkit-scrollbar-thumb { background: rgba(167,139,250,.32); border-radius: 999px; }
+  .msg { padding: 8px 11px; border-radius: 10px; line-height: 1.52; font-size: 13px; animation: msgIn .18s ease; }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .msg.boss { align-self: flex-start; background: rgba(167,139,250,.13); color: #e5ddff; border-top-left-radius: 3px; }
+  .msg.player { align-self: flex-end; background: rgba(125,211,252,.11); color: #c9efff; border-top-right-radius: 3px; }
+  .msg.system { align-self: center; background: rgba(251,191,36,.08); color: #fde68a; font-size: 11px; }
   #dialogue-input-row { display: flex; gap: 8px; }
   #dialogue-input {
-    flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(167,139,250,0.25);
-    border-radius: 10px; padding: 10px 14px; color: #e0e0f0; font-size: 14px; outline: none;
-    font-family: inherit; transition: border-color 0.3s;
+    flex: 1; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid rgba(167,139,250,.25); background: rgba(255,255,255,.055);
+    color: #edf0ff; outline: none; font-size: 14px; font-family: inherit;
   }
-  #dialogue-input:focus { border-color: rgba(167,139,250,0.6); }
-  #dialogue-input::placeholder { color: rgba(200,200,224,0.3); }
-  #dialogue-send {
-    background: linear-gradient(135deg, #7c3aed, #a78bfa); border: none; border-radius: 10px;
-    padding: 10px 18px; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 0 16px rgba(167,139,250,0.3);
+  #dialogue-input:focus { border-color: rgba(167,139,250,.64); }
+  #dialogue-send { min-width: 72px; }
+
+  #mobile-controls {
+    position: absolute; left: 16px; bottom: 18px; z-index: 6; display: none;
+    width: 150px; height: 150px; pointer-events: none;
   }
-  #dialogue-send:active { transform: scale(0.95); }
-  #dialogue-send:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  /* ── HUD ── */
-  #hud { position: absolute; top: 12px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; z-index: 5; }
-  .hud-item { font-size: 12px; color: rgba(200,200,224,0.7); text-shadow: 0 0 8px rgba(167,139,250,0.4); letter-spacing: 0.04em; }
-  .hud-item span { color: #d8ceff; font-weight: 600; }
-
-  /* ── Mobile Controls ── */
-  #mobile-controls { position: absolute; bottom: 24px; left: 0; right: 0; display: none; justify-content: space-between; align-items: flex-end; padding: 0 16px; pointer-events: none; z-index: 5; }
-  @media (max-width: 768px) { #mobile-controls { display: flex; } }
-  .ctrl-group { display: flex; gap: 8px; pointer-events: auto; }
+  @media (max-width: 768px) { #mobile-controls { display: block; } }
   .ctrl-btn {
-    width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.5); font-size: 20px;
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-    -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none;
+    position: absolute; width: 48px; height: 48px; border-radius: 50%; pointer-events: auto;
+    border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.065);
+    color: rgba(255,255,255,.62); font-size: 18px; display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   }
-  .ctrl-btn:active { background: rgba(255,255,255,0.15); }
-  .ctrl-jump { width: 64px; height: 64px; background: rgba(167,139,250,0.15); border-color: rgba(167,139,250,0.3); font-size: 24px; }
-
-  /* ── Title / Game Over ── */
-  #title-screen, #gameover-screen {
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 20px; z-index: 20; background: rgba(10,10,20,0.85); backdrop-filter: blur(4px); pointer-events: auto;
-  }
-  #title-screen h1 { font-size: clamp(28px,6vw,48px); font-weight: 300; color: #d8ceff; letter-spacing: 0.08em; text-shadow: 0 0 40px rgba(167,139,250,0.6),0 0 80px rgba(125,211,252,0.3); }
-  #title-screen .subtitle { font-size: 13px; color: rgba(200,200,224,0.5); letter-spacing: 0.12em; margin-top: -12px; }
-  #gameover-screen h2 { font-size: 32px; color: #f87171; font-weight: 300; letter-spacing: 0.06em; }
-
-  .btn {
-    padding: 12px 36px; border-radius: 28px; border: 1px solid rgba(167,139,250,0.4);
-    background: rgba(167,139,250,0.1); color: #d8ceff; font-size: 15px; cursor: pointer;
-    letter-spacing: 0.05em; transition: all 0.3s; pointer-events: auto;
-  }
-  .btn:hover { background: rgba(167,139,250,0.2); box-shadow: 0 0 24px rgba(167,139,250,0.25); }
-  .btn:active { transform: scale(0.96); }
-  .btn.small { padding: 8px 20px; font-size: 12px; }
-  .hidden { display: none !important; }
+  .ctrl-up { left: 51px; top: 0; }
+  .ctrl-left { left: 0; top: 51px; }
+  .ctrl-right { right: 0; top: 51px; }
+  .ctrl-down { left: 51px; bottom: 0; }
 </style>
 </head>
 <body>
-
 <canvas id="game"></canvas>
 
-<!-- Title -->
 <div id="title-screen">
-  <h1>星 碎</h1>
-  <p class="subtitle">S T A R F A L L</p>
-  <button class="btn" onclick="game.start()">开始游戏</button>
-  <button class="btn small" onclick="game.toggleAIConfig()">AI 设置</button>
+  <h1>星碎</h1>
+  <p class="subtitle">STARFALL</p>
+  <div class="story-card">
+    <p><strong>初始剧情</strong>：你醒在一片破碎星域，四周没有路，只有一道缓慢开启的星门。守门人 Luna 拦在门前，她并不想杀你，但也不会轻易放行。</p>
+    <p>这场试炼不只是躲避弹幕。你可以和她聊天，询问星门、职责、孤独与过去；也可以请求她放水，或者让她认真一点。你的话会改变她的态度、攻击方式，甚至让她给你护盾。</p>
+    <p class="hint">移动：WASD / 方向键自由移动。对话：间歇触发，真诚、提问、道歉、关心都会改变 Luna 的行为。</p>
+  </div>
+  <div class="button-row">
+    <button class="btn" onclick="game.start()">开始试炼</button>
+    <button class="btn small plain" onclick="game.toggleAIConfig()">AI 与声音设置</button>
+  </div>
 </div>
 
-<!-- AI Config -->
 <div id="ai-config">
-  <h3>AI 对话设置</h3>
-  <div class="toggle-row">
-    <span style="color:#c8c8e0;font-size:13px;">启用 AI 对话</span>
-    <div id="ai-toggle" class="toggle" onclick="game.toggleAI()"></div>
+  <h3>AI 与声音设置</h3>
+  <div>
+    <label>AI 模式</label>
+    <select id="ai-mode">
+      <option value="default">默认在线 AI（Cloudflare 环境变量）</option>
+      <option value="custom">使用自己的 API</option>
+      <option value="local">本地规则（不联网）</option>
+    </select>
+  </div>
+  <div class="row">
+    <div>
+      <label>自定义 API 地址</label>
+      <input id="ai-url" type="text" placeholder="https://api.openai.com/v1/chat/completions">
+    </div>
+    <div>
+      <label>模型</label>
+      <input id="ai-model" type="text" placeholder="gpt-4o-mini">
+    </div>
   </div>
   <div>
-    <label>API 地址</label>
-    <input type="text" id="ai-url" placeholder="https://api.openai.com/v1/chat/completions">
+    <label>自定义 API Key</label>
+    <input id="ai-key" type="password" placeholder="仅 custom 模式使用">
   </div>
-  <div>
-    <label>API Key</label>
-    <input type="password" id="ai-key" placeholder="sk-...">
+  <div class="row">
+    <div>
+      <label>音乐</label>
+      <select id="music-enabled"><option value="true">开启</option><option value="false">关闭</option></select>
+    </div>
+    <div>
+      <label>音量</label>
+      <select id="music-volume"><option value="0.35">低</option><option value="0.55">中</option><option value="0.8">高</option></select>
+    </div>
   </div>
-  <div>
-    <label>模型</label>
-    <input type="text" id="ai-model" placeholder="gpt-4o-minh">
-  </div>
-  <p style="font-size:10px;color:rgba(200,200,224,0.4);">支持 OpenAI 兼容接口。关闭时使用本地对话系统。</p>
-  <div class="btn-row">
-    <button class="btn small" onclick="game.toggleAIConfig()">关闭</button>
-  </div>
+  <p class="note">默认在线 AI 会请求同源的 <code>/api/dialogue</code>，真实 Key 由 Cloudflare Pages Function 从环境变量读取，不会暴露给前端。本地或自建服务可切换到“使用自己的 API”。</p>
+  <div class="button-row"><button class="btn small" onclick="game.toggleAIConfig()">保存并关闭</button></div>
 </div>
 
-<!-- Game Over -->
 <div id="gameover-screen" class="hidden">
   <h2 id="go-title">挑战失败</h2>
-  <p id="go-msg" style="color:#c8c8e0;font-size:14px;"></p>
+  <p id="go-msg" style="color:var(--muted);font-size:14px;"></p>
   <button class="btn" onclick="game.respawn()">重新开始</button>
 </div>
 
-<!-- HUD -->
 <div id="hud">
-  <div class="hud-item">生命 <span id="hud-lives">✦✦✦</span></div>
-  <div class="hud-item" id="hud-mood">态度 <span>—</span></div>
-  <div class="hud-item">存活 <span id="hud-time">0s</span></div>
+  <div class="hud-group">
+    <div class="hud-item">生命 <span id="hud-lives">3</span></div>
+    <div class="hud-item">护盾 <span id="hud-shield">0</span></div>
+  </div>
+  <div class="hud-group center">
+    <div class="hud-item" id="hud-mood">态度 <span>中立</span></div>
+    <div class="hud-item">剧情 <span id="hud-story">序章</span></div>
+  </div>
+  <div class="hud-group right">
+    <div class="hud-item">弹幕 <span id="hud-bullets">0</span></div>
+    <div class="hud-item">FPS <span id="hud-fps">60</span></div>
+    <div class="hud-item">存活 <span id="hud-time">0s</span></div>
+  </div>
 </div>
 
-<!-- Dialogue -->
 <div id="dialogue-overlay">
   <div id="dialogue-panel">
     <div id="boss-portrait">
@@ -222,1245 +241,253 @@
         <div id="boss-mood">态度：中立</div>
       </div>
     </div>
+    <div id="dialogue-hint">提示：可以问 Luna 为什么守在星门前，或者告诉她你需要一点喘息空间。</div>
+    <div id="suggestions"></div>
     <div id="dialogue-log"></div>
     <div id="dialogue-input-row">
-      <input id="dialogue-input" type="text" placeholder="说点什么…" maxlength="200" autocomplete="off">
-      <button id="dialogue-send" onclick="game.sendDialogue()">发送</button>
+      <input id="dialogue-input" type="text" placeholder="和 Luna 说些什么…" maxlength="220" autocomplete="off">
+      <button id="dialogue-send" class="btn small" onclick="game.sendDialogue()">发送</button>
+      <button class="btn small plain" onclick="game.forceEndDialogue()">继续战斗</button>
     </div>
   </div>
 </div>
 
-<!-- Mobile Controls -->
 <div id="mobile-controls">
-  <div class="ctrl-group">
-    <button class="ctrl-btn" onpointerdown="game.input.left=true" onpointerup="game.input.left=false" onpointercancel="game.input.left=false" onpointerleave="game.input.left=false">◀</button>
-    <button class="ctrl-btn" onpointerdown="game.input.right=true" onpointerup="game.input.right=false" onpointercancel="game.input.right=false" onpointerleave="game.input.right=false">▶</button>
-  </div>
-  <button class="ctrl-btn ctrl-jump" onpointerdown="game.pressJump()" onpointerup="game.releaseJump()" onpointercancel="game.releaseJump()" onpointerleave="game.releaseJump()">▲</button>
+  <button class="ctrl-btn ctrl-up" onpointerdown="game.input.up=true" onpointerup="game.input.up=false" onpointercancel="game.input.up=false" onpointerleave="game.input.up=false">▲</button>
+  <button class="ctrl-btn ctrl-left" onpointerdown="game.input.left=true" onpointerup="game.input.left=false" onpointercancel="game.input.left=false" onpointerleave="game.input.left=false">◀</button>
+  <button class="ctrl-btn ctrl-right" onpointerdown="game.input.right=true" onpointerup="game.input.right=false" onpointercancel="game.input.right=false" onpointerleave="game.input.right=false">▶</button>
+  <button class="ctrl-btn ctrl-down" onpointerdown="game.input.down=true" onpointerup="game.input.down=false" onpointercancel="game.input.down=false" onpointerleave="game.input.down=false">▼</button>
 </div>
 
 <script>
-// ═══════════════════════════════════════════
-//  配置
-// ═══════════════════════════════════════════
 const CFG = {
-  dialogueInterval: 40,
-  playerSpeed: 480,
-  playerJumpForce: -690,
-  gravity: 1600,
-  playerSize: 13,
-  invulnDuration: 2.0,
+  dialogueInterval: 38,
+  playerSpeed: 360,
+  playerFocusSpeed: 190,
+  playerSize: 12,
+  invulnDuration: 1.4,
   maxLives: 3,
-  bulletBaseSpeed: 180,
-  moodDifficultyMap: [1.5, 1.25, 1.0, 0.85, 0.7, 0.55],
+  bulletBaseSpeed: 172,
+  maxBullets: 520,
+  maxParticles: 320,
+  maxPickups: 6,
+  maxTrails: 4,
+  targetFps: 60,
+  lowFpsThreshold: 45,
+  showDebugStats: true,
+  moodDifficultyMap: [1.45, 1.22, 1.0, 0.86, 0.72, 0.58],
 };
 
-// ─── AI 配置（localStorage 持久化） ─────────
 const AI = {
-  get enabled()  { return localStorage.getItem('sf_ai_enabled') === 'true'; },
-  set enabled(v) { localStorage.setItem('sf_ai_enabled', v); },
-  get url()      { return localStorage.getItem('sf_ai_url') || 'https://api.openai.com/v1/chat/completions'; },
-  set url(v)     { localStorage.setItem('sf_ai_url', v); },
-  get key()      { return localStorage.getItem('sf_ai_key') || ''; },
-  set key(v)     { localStorage.setItem('sf_ai_key', v); },
-  get model()    { return localStorage.getItem('sf_ai_model') || 'gpt-4o-mini'; },
-  set model(v)   { localStorage.setItem('sf_ai_model', v); },
+  get mode() { return localStorage.getItem('sf_ai_mode') || 'default'; },
+  set mode(v) { localStorage.setItem('sf_ai_mode', v); },
+  get url() { return localStorage.getItem('sf_ai_url') || 'https://api.openai.com/v1/chat/completions'; },
+  set url(v) { localStorage.setItem('sf_ai_url', v); },
+  get key() { return localStorage.getItem('sf_ai_key') || ''; },
+  set key(v) { localStorage.setItem('sf_ai_key', v); },
+  get model() { return localStorage.getItem('sf_ai_model') || 'gpt-4o-mini'; },
+  set model(v) { localStorage.setItem('sf_ai_model', v); },
+  get musicEnabled() { return localStorage.getItem('sf_music_enabled') !== 'false'; },
+  set musicEnabled(v) { localStorage.setItem('sf_music_enabled', v); },
+  get musicVolume() { return Number(localStorage.getItem('sf_music_volume') || 0.55); },
+  set musicVolume(v) { localStorage.setItem('sf_music_volume', v); },
 };
 
-// ─── 工具函数 ──────────────────────────────
 const TWO_PI = Math.PI * 2;
-const rand    = (a,b) => a + Math.random()*(b-a);
-const randi   = (a,b) => Math.floor(rand(a,b+1));
-const pick    = arr => arr[Math.floor(Math.random()*arr.length)];
-const dist    = (x1,y1,x2,y2) => Math.hypot(x2-x1,y2-y1);
-const hsl     = (h,s,l,a=1) => `hsla(${h},${s}%,${l}%,${a})`;
+const rand = (a,b) => a + Math.random() * (b-a);
+const randi = (a,b) => Math.floor(rand(a,b+1));
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const hsl = (h,s,l,a=1) => `hsla(${h},${s}%,${l}%,${a})`;
+const distSq = (x1,y1,x2,y2) => { const dx=x2-x1, dy=y2-y1; return dx*dx+dy*dy; };
 
-// ─── 画布 ──────────────────────────────────
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 let W, H;
-function resize() { W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
+function resize(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; if(window.game) game.onResize(); }
 window.addEventListener('resize', resize); resize();
 
-// ═══════════════════════════════════════════
-//  音效引擎 (Web Audio API)
-// ═══════════════════════════════════════════
 class SoundEngine {
-  constructor() {
-    this.ctx = null;
-    this._bgGain = null;
-    this._bgOscs = [];
-  }
-
-  init() {
-    if (this.ctx) return;
+  constructor(){ this.ctx=null; this.master=null; this.musicGain=null; this.sfxGain=null; this.musicNodes=[]; this.bellTimer=null; this.padTimer=null; this.started=false; this.currentMood=2; }
+  init(){
+    if(this.ctx) return;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.master = this.ctx.createGain(); this.master.gain.value = AI.musicVolume;
+    this.musicGain = this.ctx.createGain(); this.musicGain.gain.value = AI.musicEnabled ? 0.32 : 0;
+    this.sfxGain = this.ctx.createGain(); this.sfxGain.gain.value = 0.75;
+    this.musicGain.connect(this.master); this.sfxGain.connect(this.master); this.master.connect(this.ctx.destination);
   }
-
-  _ensure() { if (!this.ctx) this.init(); if (this.ctx.state === 'suspended') this.ctx.resume(); }
-
-  _playTone(freq, endFreq, duration, type='sine', vol=0.08, delay=0) {
-    this._ensure();
-    const t = this.ctx.currentTime + delay;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, t);
-    if (endFreq !== freq) osc.frequency.linearRampToValueAtTime(endFreq, t + duration);
-    gain.gain.setValueAtTime(vol, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-    osc.connect(gain); gain.connect(this.ctx.destination);
-    osc.start(t); osc.stop(t + duration);
+  ensure(){ this.init(); if(this.ctx.state==='suspended') this.ctx.resume(); }
+  setVolume(){ if(!this.master) return; this.master.gain.setTargetAtTime(AI.musicVolume, this.ctx.currentTime, .05); this.musicGain.gain.setTargetAtTime(AI.musicEnabled ? .32 : 0, this.ctx.currentTime, .08); }
+  tone(freq, endFreq, dur, type='sine', vol=.05, delay=0, dest='sfx'){
+    this.ensure(); const t=this.ctx.currentTime+delay; const o=this.ctx.createOscillator(); const g=this.ctx.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq,t); if(endFreq!==freq) o.frequency.exponentialRampToValueAtTime(Math.max(20,endFreq), t+dur);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0008,t+dur);
+    o.connect(g); g.connect(dest==='music'?this.musicGain:this.sfxGain); o.start(t); o.stop(t+dur+.03); return o;
   }
-
-  _playNoise(duration, vol=0.06, delay=0) {
-    this._ensure();
-    const t = this.ctx.currentTime + delay;
-    const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * duration, this.ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i=0; i<data.length; i++) data[i]=Math.random()*2-1;
-    const src = this.ctx.createBufferSource(); src.buffer = buf;
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(vol, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t+duration);
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass'; filter.frequency.setValueAtTime(2000, t);
-    src.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
-    src.start(t); src.stop(t+duration);
+  noise(dur=.12, vol=.05){
+    this.ensure(); const len=Math.max(1, Math.floor(this.ctx.sampleRate*dur)); const buf=this.ctx.createBuffer(1,len,this.ctx.sampleRate); const data=buf.getChannelData(0);
+    for(let i=0;i<len;i++) data[i]=Math.random()*2-1;
+    const src=this.ctx.createBufferSource(); src.buffer=buf; const f=this.ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1900; const g=this.ctx.createGain();
+    g.gain.setValueAtTime(vol,this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(.0008,this.ctx.currentTime+dur);
+    src.connect(f); f.connect(g); g.connect(this.sfxGain); src.start(); src.stop(this.ctx.currentTime+dur);
   }
-
-  jump()     { this._playTone(400, 700, 0.12, 'sine', 0.06); }
-  land()     { this._playTone(150, 80, 0.08, 'triangle', 0.04); }
-  hit()      { this._playNoise(0.25, 0.12); this._playTone(300, 60, 0.3, 'sawtooth', 0.07); }
-  die()      { this._playTone(200, 30, 0.6, 'sawtooth', 0.09); }
-  dialogueOpen()  { this._playTone(523, 659, 0.15, 'sine', 0.05); setTimeout(()=>this._playTone(659,784,0.12,'sine',0.04),100); }
-  dialogueSend()  { this._playTone(440, 550, 0.08, 'sine', 0.04); }
-  moodUp()    { this._playTone(440,880,0.2,'sine',0.05); }
-  moodDown()  { this._playTone(440,220,0.25,'sawtooth',0.05); }
-  bulletSpawn(){ this._playTone(900, 1200, 0.03, 'sine', 0.012); }
-  blossom()  { this._playTone(520, 880, 0.16, 'sine', 0.045); this._playTone(780, 1040, 0.18, 'triangle', 0.03, 0.04); }
-  slash()    { this._playNoise(0.08, 0.035); this._playTone(700, 260, 0.12, 'sawtooth', 0.025); }
-  beam()     { this._playTone(120, 180, 0.28, 'sawtooth', 0.045); }
-  mercy()    { this._playTone(392, 784, 0.25, 'sine', 0.05); this._playTone(523, 1046, 0.2, 'sine', 0.035, 0.08); }
-  taunt()    { this._playTone(220, 110, 0.25, 'sawtooth', 0.055); }
-  respawn()   { this._playTone(330,660,0.3,'sine',0.06); }
-
-  startAmbient() {
-    this._ensure();
-    if (this._bgGain) return;
-    this._bgGain = this.ctx.createGain();
-    this._bgGain.gain.setValueAtTime(0.035, this.ctx.currentTime);
-    this._bgGain.connect(this.ctx.destination);
-    const freqs = [55, 82.5, 110];
-    for (const f of freqs) {
-      const osc = this.ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(f, this.ctx.currentTime);
-      osc.connect(this._bgGain);
-      osc.start();
-      this._bgOscs.push(osc);
-    }
+  startMusic(){
+    this.ensure(); if(this.started) return; this.started=true; this.setVolume();
+    const base=[55,82.41,110];
+    for(const f of base){ const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type='sine'; o.frequency.value=f; g.gain.value=.045; o.connect(g); g.connect(this.musicGain); o.start(); this.musicNodes.push(o,g); }
+    this.schedulePad(); this.scheduleBells();
   }
-
-  stopAmbient() {
-    if (!this._bgGain) return;
-    this._bgGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime+0.5);
-    setTimeout(()=>{
-      for (const o of this._bgOscs) { try{o.stop();}catch(e){} }
-      this._bgOscs=[];
-      this._bgGain=null;
-    },600);
+  schedulePad(){
+    if(!this.ctx || !this.started) return;
+    const root = this.currentMood>=4 ? 220 : this.currentMood<=1 ? 196 : 207.65;
+    const chord = this.currentMood>=4 ? [1,1.25,1.5,2] : this.currentMood<=1 ? [1,1.189,1.414,1.782] : [1,1.2,1.5,1.8];
+    chord.forEach((m,i)=>this.tone(root*m, root*m*(1+rand(-.003,.003)), 4.6, i%2?'triangle':'sine', .018, i*.06, 'music'));
+    this.padTimer=setTimeout(()=>this.schedulePad(), 4200);
   }
+  scheduleBells(){
+    if(!this.ctx || !this.started) return;
+    const scale = this.currentMood>=4 ? [0,2,4,7,9,12] : [0,3,5,7,10,12];
+    const note = 440 * Math.pow(2, pick(scale)/12) * pick([1,1,2]);
+    this.tone(note, note*1.01, rand(.55,1.1), 'sine', this.currentMood>=4?.026:.018, 0, 'music');
+    this.bellTimer=setTimeout(()=>this.scheduleBells(), rand(1150,2400));
+  }
+  setMood(m){ this.currentMood=m; }
+  duck(on){ if(!this.musicGain||!AI.musicEnabled) return; this.musicGain.gain.setTargetAtTime(on?.13:.32,this.ctx.currentTime,.12); }
+  hit(){ this.noise(.18,.11); this.tone(260,70,.32,'sawtooth',.08); this.duck(true); setTimeout(()=>this.duck(false),450); }
+  shield(){ this.tone(520,900,.24,'sine',.06); this.tone(780,1200,.22,'triangle',.04,.04); }
+  shieldBreak(){ this.noise(.12,.07); this.tone(720,220,.2,'triangle',.055); }
+  die(){ this.tone(210,38,.65,'sawtooth',.08); }
+  dialogueOpen(){ this.duck(true); this.tone(523,659,.15,'sine',.045); this.tone(659,784,.14,'sine',.035,.1); }
+  dialogueClose(){ this.duck(false); }
+  dialogueSend(){ this.tone(420,560,.07,'sine',.035); }
+  moodUp(){ this.tone(440,880,.2,'sine',.05); }
+  moodDown(){ this.tone(440,210,.26,'sawtooth',.05); }
+  blossom(){ this.tone(520,880,.16,'sine',.04); }
+  slash(){ this.noise(.08,.03); this.tone(680,260,.13,'sawtooth',.025); }
+  beam(){ this.tone(120,190,.28,'sawtooth',.043); }
+  mercy(){ this.tone(392,784,.25,'sine',.05); this.tone(523,1046,.2,'sine',.035,.08); }
 }
 const SFX = new SoundEngine();
 
-// ═══════════════════════════════════════════
-//  粒子系统
-// ═══════════════════════════════════════════
-class Particle {
-  constructor(x,y,vx,vy,life,hue,size=2,type='dot') {
-    this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.life=this.maxLife=life;
-    this.hue=hue;this.size=size;this.type=type;
-  }
-  update(dt){ this.x+=this.vx*dt; this.y+=this.vy*dt; this.life-=dt; }
-  get alpha(){ return Math.max(0,this.life/this.maxLife); }
-  get alive(){ return this.life>0; }
-}
-
+class Particle { constructor(x,y,vx,vy,life,hue,size=2,type='dot'){ this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.life=life;this.maxLife=life;this.hue=hue;this.size=size;this.type=type; } update(dt){ this.x+=this.vx*dt; this.y+=this.vy*dt; this.life-=dt; } }
 class ParticlePool {
-  constructor(){ this.particles=[]; }
+  constructor(game){ this.game=game; this.particles=[]; }
   emit(x,y,count,cfg){
-    for(let i=0;i<count;i++){
-      const a=cfg.angle+rand(-cfg.spread,cfg.spread);
-      const s=rand(cfg.speedMin,cfg.speedMax);
-      this.particles.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,
-        rand(cfg.lifeMin,cfg.lifeMax),cfg.hue+rand(-cfg.hueVar,cfg.hueVar),
-        rand(cfg.sizeMin,cfg.sizeMax),cfg.type||'dot'));
-    }
+    const scale=this.game?this.game.performanceScale:1;
+    count=Math.min(CFG.maxParticles-this.particles.length, Math.ceil(count*scale)); if(count<=0) return;
+    for(let i=0;i<count;i++){ const a=cfg.angle+rand(-cfg.spread,cfg.spread), s=rand(cfg.speedMin,cfg.speedMax); this.particles.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,rand(cfg.lifeMin,cfg.lifeMax),cfg.hue+rand(-cfg.hueVar,cfg.hueVar),rand(cfg.sizeMin,cfg.sizeMax),cfg.type||'dot')); }
   }
-  update(dt){ this.particles=this.particles.filter(p=>(p.update(dt),p.alive)); }
-  draw(ctx){
-    for(const p of this.particles){
-      const a=p.alpha;
-      ctx.save(); ctx.globalAlpha=a;
-      ctx.fillStyle=hsl(p.hue,80,70); ctx.shadowColor=hsl(p.hue,80,60); ctx.shadowBlur=p.size*3;
-      if(p.type==='star'){
-        ctx.fillStyle='#fff';
-        const s=p.size*(0.6+0.4*Math.sin(Date.now()*0.01+p.x));
-        ctx.fillRect(p.x-s/2,p.y-s/2,s,s);
-      }else if(p.type==='spark'){
-        ctx.fillStyle=hsl(p.hue,90,80);
-        ctx.beginPath();ctx.arc(p.x,p.y,p.size*a,0,TWO_PI);ctx.fill();
-      }else{ ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,TWO_PI);ctx.fill(); }
-      ctx.restore();
-    }
-  }
+  update(dt){ let w=0; for(let i=0;i<this.particles.length;i++){ const p=this.particles[i]; p.update(dt); if(p.life>0) this.particles[w++]=p; } this.particles.length=w; }
+  draw(ctx){ const low=this.game&&this.game.performanceScale<.78; for(const p of this.particles){ const a=Math.max(0,p.life/p.maxLife); ctx.globalAlpha=a; ctx.fillStyle=hsl(p.hue,80,70,a); if(!low){ ctx.shadowColor=hsl(p.hue,80,60); ctx.shadowBlur=p.size*2; } else ctx.shadowBlur=0; ctx.beginPath(); ctx.arc(p.x,p.y,p.size*a,0,TWO_PI); ctx.fill(); } ctx.globalAlpha=1; ctx.shadowBlur=0; }
 }
 
-// ═══════════════════════════════════════════
-//  弹幕系统
-// ═══════════════════════════════════════════
-class Bullet {
-  constructor(x,y,vx,vy,hue,size,type='petal'){
-    this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.hue=hue;this.size=size;this.type=type;
-    this.alive=true;this.born=performance.now()/1000;this.trail=[];
-  }
-  update(dt){
-    this.x+=this.vx*dt;this.y+=this.vy*dt;
-    if(this.type!=='beam'){ this.trail.push({x:this.x,y:this.y}); if(this.trail.length>6)this.trail.shift(); }
-  }
-  get age(){ return performance.now()/1000-this.born; }
-}
-
+class Bullet { constructor(x,y,vx,vy,hue,size,type='petal'){ this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.hue=hue;this.size=size;this.type=type;this.age=0;this.trail=[];this.alive=true;this.hasSplit=false; } update(dt,maxTrails){ this.age+=dt; this.x+=this.vx*dt; this.y+=this.vy*dt; if(maxTrails>0&&this.type!=='beam'){ this.trail.push({x:this.x,y:this.y}); if(this.trail.length>maxTrails)this.trail.shift(); } } }
 class BulletManager {
-  constructor(){ this.bullets=[]; }
-  spawn(x,y,vx,vy,hue,size,type, data={}){
-    const b = new Bullet(x,y,vx,vy,hue,size,type);
-    Object.assign(b, data);
-    this.bullets.push(b);
-    return b;
-  }
-  update(dt){
-    for(const b of this.bullets)b.update(dt);
-    this.bullets=this.bullets.filter(b=>{
-      if(b.age>15)return false;
-      if(b.x<-80||b.x>W+80||b.y<-80||b.y>H+80)return false;
-      return true;
-    });
-  }
-  draw(ctx){
-    ctx.save();ctx.globalCompositeOperation='lighter';
-    for(const b of this.bullets){
-      const alpha=b.age<0.15?b.age/0.15:1; ctx.globalAlpha=alpha;
-      if(b.trail.length>1&&b.type!=='beam'){
-        ctx.beginPath();ctx.strokeStyle=hsl(b.hue,80,65,alpha*0.5);ctx.lineWidth=b.size*0.6;
-        ctx.moveTo(b.trail[0].x,b.trail[0].y);
-        for(let i=1;i<b.trail.length;i++)ctx.lineTo(b.trail[i].x,b.trail[i].y);
-        ctx.stroke();
-      }
-      ctx.shadowColor=hsl(b.hue,90,70);ctx.shadowBlur=b.size*4;
-      if(b.type==='shard'){
-        const s=b.size;ctx.fillStyle=hsl(b.hue,80,70);
-        ctx.beginPath();ctx.moveTo(b.x,b.y-s);ctx.lineTo(b.x+s*0.6,b.y);
-        ctx.lineTo(b.x,b.y+s);ctx.lineTo(b.x-s*0.6,b.y);ctx.closePath();ctx.fill();
-      }else if(b.type==='needle'){
-        const s=b.size, a=Math.atan2(b.vy,b.vx);
-        ctx.save();ctx.translate(b.x,b.y);ctx.rotate(a);
-        ctx.fillStyle=hsl(b.hue,90,72);
-        ctx.beginPath();ctx.moveTo(s*2.4,0);ctx.lineTo(-s*1.4,-s*0.45);ctx.lineTo(-s*0.8,0);ctx.lineTo(-s*1.4,s*0.45);ctx.closePath();ctx.fill();
-        ctx.restore();
-      }else if(b.type==='petal'){
-        const s=b.size, a=b.age*4+(b.spin||0);
-        ctx.save();ctx.translate(b.x,b.y);ctx.rotate(a);
-        ctx.fillStyle=hsl(b.hue,75,72,0.9);
-        ctx.beginPath();ctx.ellipse(0,0,s*0.75,s*1.8,0,0,TWO_PI);ctx.fill();
-        ctx.restore();
-      }else if(b.type==='rune'){
-        const s=b.size, a=b.age*2;
-        ctx.save();ctx.translate(b.x,b.y);ctx.rotate(a);
-        ctx.strokeStyle=hsl(b.hue,85,75,0.95);ctx.lineWidth=2;
-        ctx.beginPath();ctx.rect(-s,-s,s*2,s*2);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(-s*1.2,0);ctx.lineTo(s*1.2,0);ctx.moveTo(0,-s*1.2);ctx.lineTo(0,s*1.2);ctx.stroke();
-        ctx.restore();
-      }else if(b.type==='wave'){
-        const s=b.size, a=Math.atan2(b.vy,b.vx);
-        ctx.save();ctx.translate(b.x,b.y);ctx.rotate(a);
-        ctx.strokeStyle=hsl(b.hue,85,72,0.9);ctx.lineWidth=3;ctx.beginPath();
-        for(let i=0;i<8;i++){const x=-s*2+i*s*0.55,y=Math.sin(i*1.4+b.age*8)*s*0.6;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
-        ctx.stroke();ctx.restore();
-      }else if(b.type==='comet'){
-        const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.size*1.8);
-        g.addColorStop(0,hsl(b.hue,100,90));g.addColorStop(0.4,hsl(b.hue,90,70));g.addColorStop(1,'transparent');
-        ctx.fillStyle=g;ctx.beginPath();ctx.arc(b.x,b.y,b.size*1.8,0,TWO_PI);ctx.fill();
-      }else{
-        const g=ctx.createRadialGradient(b.x-b.size*0.3,b.y-b.size*0.3,b.size*0.1,b.x,b.y,b.size);
-        g.addColorStop(0,'#fff');g.addColorStop(0.3,hsl(b.hue,90,75));g.addColorStop(1,hsl(b.hue,60,40,0));
-        ctx.fillStyle=g;ctx.beginPath();ctx.arc(b.x,b.y,b.size,0,TWO_PI);ctx.fill();
-      }
-    }
-    ctx.restore();
-  }
-  clear(){ this.bullets=[]; }
+  constructor(game){ this.game=game; this.bullets=[]; }
+  spawn(x,y,vx,vy,hue,size,type,data={}){ if(this.bullets.length>=CFG.maxBullets) return null; const b=new Bullet(x,y,vx,vy,hue,size,type); Object.assign(b,data); this.bullets.push(b); return b; }
+  update(dt){ const maxTrails=this.game.performanceScale<.72?0:Math.max(1,Math.round(CFG.maxTrails*this.game.performanceScale)); let w=0; for(let i=0;i<this.bullets.length;i++){ const b=this.bullets[i]; b.update(dt,maxTrails); if(b.alive && b.age<13 && b.x>-90 && b.x<W+90 && b.y>-90 && b.y<H+90) this.bullets[w++]=b; } this.bullets.length=w; }
+  clear(){ this.bullets.length=0; }
+  clearNear(x,y,r){ const rr=r*r; let removed=0,w=0; for(let i=0;i<this.bullets.length;i++){ const b=this.bullets[i]; if(distSq(x,y,b.x,b.y)<rr){ removed++; continue; } this.bullets[w++]=b; } this.bullets.length=w; return removed; }
+  draw(ctx){ const low=this.game.performanceScale<.78; ctx.save(); ctx.globalCompositeOperation='lighter'; for(const b of this.bullets){ const alpha=b.age<.12?b.age/.12:1; ctx.globalAlpha=alpha; if(b.trail.length>1&&!low){ ctx.beginPath(); ctx.strokeStyle=hsl(b.hue,80,65,alpha*.36); ctx.lineWidth=Math.max(1,b.size*.42); ctx.moveTo(b.trail[0].x,b.trail[0].y); for(let i=1;i<b.trail.length;i++)ctx.lineTo(b.trail[i].x,b.trail[i].y); ctx.stroke(); }
+      ctx.shadowColor=hsl(b.hue,90,70); ctx.shadowBlur=low?0:b.size*2.2; ctx.fillStyle=hsl(b.hue,82,68,.9); ctx.strokeStyle=hsl(b.hue,88,74,.9);
+      if(b.type==='needle'){ const s=b.size,a=Math.atan2(b.vy,b.vx); ctx.save();ctx.translate(b.x,b.y);ctx.rotate(a);ctx.beginPath();ctx.moveTo(s*2.4,0);ctx.lineTo(-s*1.2,-s*.45);ctx.lineTo(-s*.75,0);ctx.lineTo(-s*1.2,s*.45);ctx.closePath();ctx.fill();ctx.restore(); }
+      else if(b.type==='petal'){ const s=b.size,a=b.age*4+(b.spin||0); ctx.save();ctx.translate(b.x,b.y);ctx.rotate(a);ctx.beginPath();ctx.ellipse(0,0,s*.72,s*1.75,0,0,TWO_PI);ctx.fill();ctx.restore(); }
+      else if(b.type==='rune'){ const s=b.size,a=b.age*1.7; ctx.save();ctx.translate(b.x,b.y);ctx.rotate(a);ctx.lineWidth=low?1:2;ctx.strokeRect(-s,-s,s*2,s*2);ctx.beginPath();ctx.moveTo(-s*1.15,0);ctx.lineTo(s*1.15,0);ctx.moveTo(0,-s*1.15);ctx.lineTo(0,s*1.15);ctx.stroke();ctx.restore(); }
+      else if(b.type==='wave'){ const s=b.size,a=Math.atan2(b.vy,b.vx); ctx.save();ctx.translate(b.x,b.y);ctx.rotate(a);ctx.lineWidth=low?2:3;ctx.beginPath();for(let i=0;i<8;i++){const x=-s*2+i*s*.55,y=Math.sin(i*1.4+b.age*8)*s*.6;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();ctx.restore(); }
+      else if(b.type==='comet'){ ctx.beginPath();ctx.arc(b.x,b.y,b.size*(low?1.25:1.65),0,TWO_PI);ctx.fill(); }
+      else { const s=b.size;ctx.beginPath();ctx.moveTo(b.x,b.y-s);ctx.lineTo(b.x+s*.65,b.y);ctx.lineTo(b.x,b.y+s);ctx.lineTo(b.x-s*.65,b.y);ctx.closePath();ctx.fill(); }
+    } ctx.restore(); ctx.globalAlpha=1; ctx.shadowBlur=0; }
 }
 
-// ═══════════════════════════════════════════
-//  攻击模式 (8种)
-// ═══════════════════════════════════════════
-class AttackPattern {
-  constructor(boss){ this.boss=boss;this.timer=0;this.duration=3+Math.random()*4;this.hue=rand(250,320); }
-  update(boss,bullets,particles,dt,difficulty){}
-  get isDone(){ return this.timer>=this.duration; }
-}
+class AttackPattern { constructor(boss){ this.boss=boss; this.timer=0; this.duration=3+Math.random()*4; this.hue=rand(220,320); } update(boss,bullets,particles,dt,diff){} get isDone(){ return this.timer>=this.duration; } }
+class StarRain extends AttackPattern { update(boss,bullets,particles,dt,diff){ this.timer+=dt; const scale=boss.game.performanceScale; if(Math.random()<.035*diff*scale){ const x=boss.x+rand(-W*.26,W*.26), s=CFG.bulletBaseSpeed*diff*rand(.75,1.15); bullets.spawn(x,boss.y+20,rand(-.16,.16)*s,s,this.hue,rand(4,7),'petal',{spin:rand(0,TWO_PI)}); } if(Math.random()<.01*diff*scale) bullets.spawn(boss.x+rand(-110,110),boss.y+15,rand(-.18,.18)*90,CFG.bulletBaseSpeed*diff*1.45,this.hue+30,rand(5,8),'needle'); } }
+class SpiralBloom extends AttackPattern { constructor(boss){ super(boss); this.angle=0; this.arms=3; } update(boss,bullets,particles,dt,diff){ this.timer+=dt; this.angle+=2.1*diff*dt; const fi=.095/diff; if(Math.floor(this.timer/fi)>Math.floor((this.timer-dt)/fi)){ for(let i=0;i<this.arms;i++){ const a=this.angle+TWO_PI*i/this.arms, s=CFG.bulletBaseSpeed*diff*.92; bullets.spawn(boss.x,boss.y,Math.cos(a)*s,Math.sin(a)*s,this.hue+i*24,rand(4,7),i%2?'wave':'petal',{spin:rand(0,TWO_PI)}); } } } }
+class PulseWave extends AttackPattern { update(boss,bullets,particles,dt,diff){ this.timer+=dt; const iv=.68/diff; if(Math.floor(this.timer/iv)>Math.floor((this.timer-dt)/iv)){ const n=Math.floor((10+5*diff)*boss.game.performanceScale); for(let i=0;i<n;i++){ const a=TWO_PI*i/n+this.timer*.3, s=CFG.bulletBaseSpeed*diff*.78; bullets.spawn(boss.x,boss.y,Math.cos(a)*s,Math.sin(a)*s,240+i*5,rand(4,7),'wave'); } } } }
+class CometSwarm extends AttackPattern { constructor(boss){ super(boss); this.a=rand(0,TWO_PI); } update(boss,bullets,particles,dt,diff){ this.timer+=dt; this.a+=.7*dt; if(Math.random()<.032*diff*boss.game.performanceScale){ const a=this.a+rand(-.5,.5), s=CFG.bulletBaseSpeed*diff*1.05; bullets.spawn(boss.x,boss.y,Math.cos(a)*s,Math.sin(a)*s,205,rand(5,8),'comet'); } const p=boss.game.player; for(const b of bullets.bullets){ if(b.type==='comet'&&b.age>.25&&b.age<1.9){ const dx=p.x-b.x,dy=p.y-b.y,d=Math.hypot(dx,dy)||1,f=(boss.focusPlayerTimer>0?132:58)*diff*dt; b.vx+=dx/d*f; b.vy+=dy/d*f; } } } }
+class NebulaBurst extends AttackPattern { constructor(boss){ super(boss); this.charged=false; } update(boss,bullets,particles,dt,diff){ this.timer+=dt; const ct=1.15/diff; if(!this.charged&&this.timer>=ct){ this.charged=true; const n=Math.floor((22+10*diff)*boss.game.performanceScale); for(let i=0;i<n;i++){ const a=TWO_PI*i/n+rand(-.07,.07), s=CFG.bulletBaseSpeed*diff*rand(.85,1.2); bullets.spawn(boss.x,boss.y,Math.cos(a)*s,Math.sin(a)*s,300+i*4,rand(4,7),i%3?'petal':'rune',{spin:rand(0,TWO_PI)}); } particles.emit(boss.x,boss.y,28,{angle:0,spread:TWO_PI,speedMin:50,speedMax:180,lifeMin:.25,lifeMax:.75,hue:300,hueVar:35,sizeMin:1,sizeMax:4,type:'spark'}); this.duration=ct+1.35; } } }
+class LaserWeave extends AttackPattern { constructor(boss){ super(boss); this.lasers=[]; for(let i=0;i<4;i++)this.lasers.push({x:rand(60,W-60),y:rand(60,H-80),dir:Math.random()<.5?'h':'v',speed:rand(55,120),phase:rand(0,TWO_PI),hue:rand(250,310)}); } update(boss,bullets,particles,dt,diff){ this.timer+=dt; for(const l of this.lasers){ if(l.dir==='h'){ l.x+=Math.sin(this.timer*1.5+l.phase)*l.speed*dt; if(Math.random()<.13*diff*boss.game.performanceScale) bullets.spawn(l.x+rand(-10,10),l.y,0,rand(60,120)*diff,l.hue,rand(4,7),'needle'); } else { l.y+=Math.cos(this.timer*1.4+l.phase)*l.speed*dt; if(Math.random()<.13*diff*boss.game.performanceScale) bullets.spawn(l.x,l.y+rand(-10,10),rand(60,120)*diff,0,l.hue,rand(4,7),'needle'); } l.x=clamp(l.x,24,W-24); l.y=clamp(l.y,55,H-55); } } drawLasers(ctx){ ctx.save();ctx.globalCompositeOperation='lighter'; for(const l of this.lasers){ const a=.2+.12*Math.sin(this.timer*5+l.phase); ctx.strokeStyle=hsl(l.hue,80,66,a); ctx.lineWidth=2; ctx.shadowColor=hsl(l.hue,90,70); ctx.shadowBlur=8; ctx.beginPath(); if(l.dir==='h'){ctx.moveTo(l.x-60,l.y);ctx.lineTo(l.x+60,l.y);}else{ctx.moveTo(l.x,l.y-60);ctx.lineTo(l.x,l.y+60);} ctx.stroke(); } ctx.restore(); } }
+class StarFragments extends AttackPattern { update(boss,bullets,particles,dt,diff){ this.timer+=dt; if(Math.random()<.022*diff*boss.game.performanceScale){ const a=rand(.2,Math.PI-.2), s=CFG.bulletBaseSpeed*diff*.55; bullets.spawn(boss.x+rand(-70,70),boss.y+20,Math.cos(a)*s,Math.sin(a)*s,330,rand(8,11),'shard'); } let splits=0; for(const b of bullets.bullets){ if(splits>2)break; if(b.type==='shard'&&!b.hasSplit&&b.age>.65&&Math.random()<.018*diff){ b.hasSplit=true; b.alive=false; splits++; for(let i=0;i<4;i++){ const a=TWO_PI*i/4+rand(-.2,.2), s=CFG.bulletBaseSpeed*diff*rand(.75,1.05); bullets.spawn(b.x,b.y,Math.cos(a)*s,Math.sin(a)*s,345,rand(3,5),i%2?'rune':'needle'); } } } } }
+class GravityWell extends AttackPattern { constructor(boss){ super(boss); this.wellX=rand(W*.22,W*.78); this.wellY=rand(H*.24,H*.72); this.phase='collect'; this.phaseTimer=0; this.sucked=[]; this.duration=5; } update(boss,bullets,particles,dt,diff){ this.timer+=dt; this.phaseTimer+=dt; if(this.phase==='collect'&&this.phaseTimer<1.35/diff){ if(Math.random()<.05*boss.game.performanceScale){ const b=bullets.spawn(boss.x+rand(-80,80),boss.y+rand(0,40),rand(-25,25),rand(50,100),230,rand(3,5),'petal'); if(b)this.sucked.push(b); } for(const b of this.sucked){ if(!b.alive)continue; const dx=this.wellX-b.x,dy=this.wellY-b.y,d=Math.hypot(dx,dy)||1; b.vx+=dx/d*280*dt; b.vy+=dy/d*280*dt; b.vx*=.985;b.vy*=.985; } } else if(this.phase==='collect'){ this.phase='release'; this.phaseTimer=0; for(const b of this.sucked)b.alive=false; const n=Math.floor((20+8*diff)*boss.game.performanceScale); for(let i=0;i<n;i++){ const a=TWO_PI*i/n, s=CFG.bulletBaseSpeed*diff*rand(.85,1.25); bullets.spawn(this.wellX,this.wellY,Math.cos(a)*s,Math.sin(a)*s,230,rand(4,7),'comet'); } } } drawWell(ctx){ if(this.phase==='collect'){ const p=.7+.3*Math.sin(this.phaseTimer*9); const g=ctx.createRadialGradient(this.wellX,this.wellY,0,this.wellX,this.wellY,42*p); g.addColorStop(0,'rgba(190,210,255,.42)');g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(this.wellX,this.wellY,42*p,0,TWO_PI);ctx.fill(); } } }
+const PATTERNS=[StarRain,SpiralBloom,PulseWave,CometSwarm,NebulaBurst,LaserWeave,StarFragments,GravityWell];
 
-class StarRain extends AttackPattern {
-  update(boss,bullets,particles,dt,diff){
-    this.timer+=dt;this.hue=270+Math.sin(this.timer*1.5)*20;
-    if(Math.random()<0.04*diff){
-      const x=boss.x+rand(-120,120),sp=rand(-0.25,0.25),s=CFG.bulletBaseSpeed*diff*rand(0.75,1.2);
-      bullets.spawn(x,boss.y+20,sp*s*0.4,s,this.hue,rand(4,7),'petal',{spin:rand(0,TWO_PI)});
-    }
-    if(Math.random()<0.012*diff){
-      bullets.spawn(boss.x+rand(-80,80),boss.y+15,rand(-0.2,0.2)*80,CFG.bulletBaseSpeed*diff*1.6,this.hue+30,rand(5,8),'needle');
-      if(Math.random()<0.08)SFX.bulletSpawn();
-    }
-  }
-}
+class Pickup { constructor(x,y,type='shield'){ this.x=x;this.y=y;this.vx=rand(-18,18);this.vy=rand(18,46);this.type=type;this.radius=12;this.life=12;this.age=0;this.hue=190; } update(dt,player){ this.age+=dt; this.life-=dt; const dx=player.x-this.x,dy=player.y-this.y,d2=dx*dx+dy*dy; if(d2<120*120){ const d=Math.sqrt(d2)||1; this.vx+=dx/d*80*dt; this.vy+=dy/d*80*dt; } this.x+=this.vx*dt; this.y+=this.vy*dt; this.vx*=.992; this.vy*=.992; return this.life>0 && this.x>-40&&this.x<W+40&&this.y>-40&&this.y<H+40; } draw(ctx){ const pulse=.78+.22*Math.sin(this.age*6); ctx.save();ctx.globalCompositeOperation='lighter';ctx.shadowColor='#7dd3fc';ctx.shadowBlur=16;ctx.strokeStyle=`rgba(125,211,252,${.8*pulse})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(this.x,this.y,this.radius*pulse,0,TWO_PI);ctx.stroke();ctx.fillStyle='rgba(186,230,253,.25)';ctx.beginPath();ctx.arc(this.x,this.y,5,0,TWO_PI);ctx.fill();ctx.restore(); } }
+class PickupManager { constructor(game){ this.game=game; this.items=[]; } spawnShield(x,y){ if(this.items.length>=CFG.maxPickups)return; this.items.push(new Pickup(x,y,'shield')); } update(dt){ const p=this.game.player; let w=0; for(let i=0;i<this.items.length;i++){ const item=this.items[i]; if(distSq(item.x,item.y,p.x,p.y)<(item.radius+CFG.playerSize)*(item.radius+CFG.playerSize)){ p.addShield(); this.game.particles.emit(item.x,item.y,18,{angle:0,spread:TWO_PI,speedMin:30,speedMax:120,lifeMin:.25,lifeMax:.65,hue:190,hueVar:30,sizeMin:1,sizeMax:4,type:'spark'}); SFX.shield(); continue; } if(item.update(dt,p)) this.items[w++]=item; } this.items.length=w; } draw(ctx){ for(const item of this.items)item.draw(ctx); } }
 
-class SpiralBloom extends AttackPattern {
-  constructor(boss){ super(boss);this.angle=0;this.arms=3;this.spinSpeed=rand(1.5,2.5); }
-  update(boss,bullets,particles,dt,diff){
-    this.timer+=dt;this.angle+=this.spinSpeed*diff*dt;this.hue=290+Math.sin(this.timer*0.7)*30;
-    const fi=0.08/diff;
-    if(Math.floor(this.timer/fi)>Math.floor((this.timer-dt)/fi)){
-      for(let a=0;a<this.arms;a++){
-        const aa=this.angle+(TWO_PI/this.arms)*a;
-        const kind = a%2===0 ? 'petal' : 'wave';
-        bullets.spawn(boss.x,boss.y,Math.cos(aa)*CFG.bulletBaseSpeed*diff*(0.8+Math.sin(this.timer*3+a)*0.3),Math.sin(aa)*CFG.bulletBaseSpeed*diff*(0.8+Math.sin(this.timer*3+a)*0.3),this.hue+a*20,rand(4,7),kind,{spin:rand(0,TWO_PI)});
-      }
-    }
-    if(Math.random()<0.3)particles.emit(boss.x,boss.y,1,{angle:this.angle,spread:TWO_PI,speedMin:20,speedMax:60,lifeMin:0.3,lifeMax:0.8,hue:this.hue,hueVar:20,sizeMin:1,sizeMax:3,type:'spark'});
-  }
-}
-
-class PulseWave extends AttackPattern {
-  constructor(boss){ super(boss);this.duration=4+Math.random()*3; }
-  update(boss,bullets,particles,dt,diff){
-    this.timer+=dt;this.hue=260+Math.sin(this.timer)*25;
-    const iv=0.55/diff;
-    if(Math.floor(this.timer/iv)>Math.floor((this.timer-dt)/iv)){
-      const n=Math.floor(12+6*diff);
-      for(let i=0;i<n;i++){
-        const a=(TWO_PI/n)*i+this.timer*0.4,s=CFG.bulletBaseSpeed*diff*0.75;
-        bullets.spawn(boss.x,boss.y,Math.cos(a)*s,Math.sin(a)*s,this.hue+i*3,rand(4,7),'wave');
-      }
-    }
-  }
-}
-
-class CometSwarm extends AttackPattern {
-  constructor(boss){ super(boss);this.swarmAngle=rand(0,TWO_PI); }
-  update(boss,bullets,particles,dt,diff){
-    this.timer+=dt;this.hue=200+Math.sin(this.timer*2)*30;this.swarmAngle+=0.6*dt;
-    if(Math.random()<0.04*diff){
-      const a=this.swarmAngle+rand(-0.5,0.5);
-      bullets.spawn(boss.x,boss.y,Math.cos(a)*CFG.bulletBaseSpeed*diff*1.1,Math.sin(a)*CFG.bulletBaseSpeed*diff*1.1,this.hue,rand(5,9),'comet');
-    }
-    const p=this.boss.game.player;
-    for(const b of bullets.bullets){
-      if(b.type==='comet'&&b.age>0.3&&b.age<2){
-        const dx=p.x-b.x,dy=p.y-b.y,d=Math.hypot(dx,dy)||1,f=(boss.focusPlayerTimer>0?140:60)*diff*dt;
-        b.vx+=(dx/d)*f;b.vy+=(dy/d)*f;
-      }
-    }
-  }
-}
-
-class NebulaBurst extends AttackPattern {
-  constructor(boss){ super(boss);this.charged=false; }
-  update(boss,bullets,particles,dt,diff){
-    this.timer+=dt;this.hue=310;
-    const ct=1.2/diff;
-    if(!this.charged&&this.timer>=ct){
-      this.charged=true;
-      const n=Math.floor(28+12*diff);
-      for(let i=0;i<n;i++){
-        const a=(TWO_PI/n)*i+rand(-0.08,0.08),s=CFG.bulletBaseSpeed*diff*rand(0.8,1.3);
-        bullets.spawn(boss.x,boss.y,Math.cos(a)*s,Math.sin(a)*s,this.hue+i*5,rand(4,7),i%3===0?'rune':'petal',{spin:rand(0,TWO_PI)});
-      }
-      particles.emit(boss.x,boss.y,40,{angle:0,spread:TWO_PI,speedMin:60,speedMax:200,lifeMin:0.3,lifeMax:0.9,hue:this.hue,hueVar:40,sizeMin:2,sizeMax:6,type:'spark'});
-      this.duration=ct+1.5;
-    }
-    if(!this.charged&&Math.random()<0.5){
-      const a=rand(0,TWO_PI);
-      particles.emit(boss.x+Math.cos(a)*30,boss.y+Math.sin(a)*30,1,{angle:a+Math.PI,spread:0.3,speedMin:40,speedMax:100,lifeMin:0.2,lifeMax:0.5,hue:60,hueVar:10,sizeMin:1,sizeMax:3,type:'spark'});
-    }
-  }
-}
-
-class LaserWeave extends AttackPattern {
-  constructor(boss){
-    super(boss);this.lasers=[];this.duration=3+Math.random()*3;
-    for(let i=0;i<4;i++)this.lasers.push({x:rand(60,W-60),y:rand(boss.y+60,H*0.7),dir:Math.random()<0.5?'h':'v',speed:rand(60,140),phase:rand(0,TWO_PI),hue:rand(250,310)});
-  }
-  update(boss,bullets,particles,dt,diff){
-    this.timer+=dt;this.hue=280;
-    for(const l of this.lasers){
-      if(l.dir==='h'){
-        l.x+=l.speed*dt*(Math.sin(this.timer*1.3+l.phase)>0?1:-1);
-        l.y+=Math.sin(this.timer*2+l.phase)*30*dt;
-        if(Math.random()<0.18*diff)bullets.spawn(l.x+rand(-8,8),l.y,0,rand(60,130)*diff,l.hue,rand(4,7),'needle');
-      }else{
-        l.y+=l.speed*dt*(Math.cos(this.timer*1.5+l.phase)>0?1:-1);
-        l.x+=Math.cos(this.timer*1.8+l.phase)*30*dt;
-        if(Math.random()<0.18*diff)bullets.spawn(l.x,l.y+rand(-8,8),rand(60,130)*diff,0,l.hue,rand(4,7),'needle');
-      }
-      l.x=Math.max(20,Math.min(W-20,l.x));l.y=Math.max(boss.y+40,Math.min(H-40,l.y));
-    }
-  }
-  drawLasers(ctx){
-    ctx.save();ctx.globalCompositeOperation='lighter';
-    for(const l of this.lasers){
-      const a=0.25+0.15*Math.sin(this.timer*4+l.phase);
-      ctx.strokeStyle=hsl(l.hue,80,65,a);ctx.lineWidth=2;ctx.shadowColor=hsl(l.hue,90,70);ctx.shadowBlur=10;
-      ctx.beginPath();
-      if(l.dir==='h'){ctx.moveTo(l.x-50,l.y);ctx.lineTo(l.x+50,l.y);}
-      else{ctx.moveTo(l.x,l.y-50);ctx.lineTo(l.x,l.y+50);}
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-}
-
-class StarFragments extends AttackPattern {
-  constructor(boss){ super(boss);this.duration=5+Math.random()*4; }
-  update(boss,bullets,particles,dt,diff){
-    this.timer+=dt;this.hue=330+Math.sin(this.timer)*20;
-    if(Math.random()<0.025*diff){
-      const a=rand(0.3,Math.PI-0.3);
-      bullets.spawn(boss.x+rand(-40,40),boss.y+20,Math.cos(a)*CFG.bulletBaseSpeed*diff*0.5,Math.sin(a)*CFG.bulletBaseSpeed*diff*0.5,this.hue,8+rand(0,4),'shard');
-    }
-    for(const b of bullets.bullets){
-      if(b.type==='shard'&&b.size>6&&b.age>0.6&&Math.random()<0.02*diff){
-        b.alive=false;
-        for(let i=0;i<randi(3,6);i++){
-          const fa=rand(0,TWO_PI),fs=CFG.bulletBaseSpeed*diff*rand(0.7,1.2);
-          bullets.spawn(b.x,b.y,Math.cos(fa)*fs,Math.sin(fa)*fs,b.hue+20,rand(3,5),i%2?'rune':'needle');
-        }
-        particles.emit(b.x,b.y,6,{angle:0,spread:TWO_PI,speedMin:30,speedMax:90,lifeMin:0.15,lifeMax:0.4,hue:b.hue,hueVar:20,sizeMin:1,sizeMax:3,type:'spark'});
-      }
-    }
-  }
-}
-
-class GravityWell extends AttackPattern {
-  constructor(boss){
-    super(boss);this.wellX=rand(W*0.2,W*0.8);this.wellY=rand(H*0.3,H*0.7);
-    this.phase='collect';this.phaseTimer=0;this.suckedBullets=[];this.duration=5+Math.random()*3;
-  }
-  update(boss,bullets,particles,dt,diff){
-    this.timer+=dt;this.phaseTimer+=dt;this.hue=240;
-    const cd=1.5/diff;
-    if(this.phase==='collect'&&this.phaseTimer<cd){
-      if(Math.random()<0.06){
-        const b=new Bullet(boss.x+rand(-70,70),boss.y+rand(0,40),rand(-0.3,0.3)*30,rand(0.5,1)*100,this.hue,rand(3,5),'petal');
-        this.suckedBullets.push(b);bullets.bullets.push(b);
-      }
-      for(const b of this.suckedBullets){
-        if(!b.alive)continue;
-        const dx=this.wellX-b.x,dy=this.wellY-b.y,d=Math.hypot(dx,dy)||1,f=300*dt;
-        b.vx+=(dx/d)*f;b.vy+=(dy/d)*f;b.vx*=0.98;b.vy*=0.98;
-      }
-    }else if(this.phase==='collect'){
-      this.phase='hold';this.phaseTimer=0;
-      for(const b of this.suckedBullets)b.alive=false;
-      this.suckedBullets=[];
-      particles.emit(this.wellX,this.wellY,30,{angle:0,spread:TWO_PI,speedMin:80,speedMax:250,lifeMin:0.4,lifeMax:0.8,hue:this.hue,hueVar:30,sizeMin:2,sizeMax:5,type:'spark'});
-    }else if(this.phase==='hold'&&this.phaseTimer>=0.8){
-      this.phase='release';
-      const n=Math.floor(24+10*diff);
-      for(let i=0;i<n;i++){
-        const a=(TWO_PI/n)*i+rand(-0.05,0.05);
-        bullets.spawn(this.wellX,this.wellY,Math.cos(a)*CFG.bulletBaseSpeed*diff*rand(0.9,1.4),Math.sin(a)*CFG.bulletBaseSpeed*diff*rand(0.9,1.4),this.hue+40,rand(4,7),'comet');
-      }
-      this.duration=Math.min(this.duration,this.timer+1.5);
-    }
-  }
-  drawWell(ctx){
-    if(this.phase==='collect'||this.phase==='hold'){
-      ctx.save();ctx.globalCompositeOperation='lighter';
-      const p=0.6+0.4*Math.sin(this.phaseTimer*8);
-      const g=ctx.createRadialGradient(this.wellX,this.wellY,0,this.wellX,this.wellY,40*p);
-      g.addColorStop(0,'rgba(180,200,255,0.5)');g.addColorStop(0.5,'rgba(100,140,255,0.2)');g.addColorStop(1,'transparent');
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(this.wellX,this.wellY,40*p,0,TWO_PI);ctx.fill();
-      ctx.restore();
-    }
-  }
-}
-
-const PATTERNS = [StarRain, SpiralBloom, PulseWave, CometSwarm, NebulaBurst, LaserWeave, StarFragments, GravityWell];
-
-// ═══════════════════════════════════════════
-//  玩家（无惯性直控）
-// ═══════════════════════════════════════════
 class Player {
   constructor(){ this.reset(); }
-  reset(){
-    this.x=W/2;this.y=H*0.78;this.vx=0;this.vy=0;
-    this.grounded=false;this.invulnTimer=0;this.alive=true;this.trailHue=200;
-  }
-  get hitbox(){ return {x:this.x-CFG.playerSize,y:this.y-CFG.playerSize,w:CFG.playerSize*2,h:CFG.playerSize*2}; }
-
-  jump(particles){
-    if(!this.alive || !this.grounded)return false;
-    this.vy=CFG.playerJumpForce;this.grounded=false;
-    SFX.jump();
-    particles.emit(this.x,this.y+CFG.playerSize,8,{angle:-Math.PI/2,spread:0.8,speedMin:40,speedMax:120,lifeMin:0.15,lifeMax:0.4,hue:200,hueVar:20,sizeMin:1,sizeMax:3,type:'spark'});
-    return true;
-  }
-
-  update(dt, input, particles, groundY){
-    if(!this.alive)return;
-    if(this.invulnTimer>0)this.invulnTimer-=dt;
-
-    const dir = (input.right?1:0) - (input.left?1:0);
-    this.vx = dir * CFG.playerSpeed;
-    this.x += this.vx * dt;
-
-    if(input.jumpQueued){
-      this.jump(particles);
-      input.jumpQueued=false;
-    }
-
-    this.vy+=CFG.gravity*dt;
-    this.y+=this.vy*dt;
-
-    if(this.y>=groundY){
-      if(!this.grounded && this.vy>200) SFX.land();
-      this.y=groundY;this.vy=0;this.grounded=true;
-    }
-    this.x=Math.max(CFG.playerSize,Math.min(W-CFG.playerSize,this.x));
-
-    if(Math.random()<0.6&&(Math.abs(this.vx)>20||!this.grounded)){
-      particles.emit(this.x,this.y,1,{angle:-Math.PI/2+rand(-0.3,0.3),spread:0.2,speedMin:10,speedMax:40,lifeMin:0.1,lifeMax:0.35,hue:this.trailHue+Math.sin(Date.now()*0.01)*10,hueVar:15,sizeMin:1,sizeMax:3,type:'spark'});
-    }
-  }
-
-  draw(ctx){
-    if(!this.alive)return;
-    if(this.invulnTimer>0 && Math.floor(this.invulnTimer*10)%2===0)return;
-    ctx.save();ctx.globalCompositeOperation='lighter';
-    const ag=ctx.createRadialGradient(this.x,this.y,CFG.playerSize*0.3,this.x,this.y,CFG.playerSize*2.5);
-    ag.addColorStop(0,'rgba(125,211,252,0.5)');ag.addColorStop(0.5,'rgba(125,200,252,0.15)');ag.addColorStop(1,'transparent');
-    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(this.x,this.y,CFG.playerSize*2.5,0,TWO_PI);ctx.fill();
-    const bg=ctx.createRadialGradient(this.x-2,this.y-3,1,this.x,this.y,CFG.playerSize);
-    bg.addColorStop(0,'#fff');bg.addColorStop(0.25,'#bae6fd');bg.addColorStop(0.6,'#38bdf8');bg.addColorStop(1,'rgba(14,116,144,0)');
-    ctx.fillStyle=bg;ctx.shadowColor='#7dd3fc';ctx.shadowBlur=14;
-    ctx.beginPath();ctx.arc(this.x,this.y,CFG.playerSize,0,TWO_PI);ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,0.7)';
-    ctx.beginPath();ctx.arc(this.x-3,this.y-4,CFG.playerSize*0.3,0,TWO_PI);ctx.fill();
-    ctx.restore();
-  }
-
-  hit(bullet){
-    if(this.invulnTimer>0||!this.alive)return false;
-    return dist(this.x,this.y,bullet.x,bullet.y)<(CFG.playerSize+bullet.size*0.7);
-  }
+  reset(){ this.x=W/2;this.y=H*.76;this.vx=0;this.vy=0;this.alive=true;this.invulnTimer=0;this.shieldCharges=0;this.trailHue=200; }
+  addShield(){ this.shieldCharges=clamp(this.shieldCharges+1,0,2); }
+  consumeShield(game){ if(this.shieldCharges<=0)return false; this.shieldCharges--; this.invulnTimer=.9; game.bullets.clearNear(this.x,this.y,92); game.particles.emit(this.x,this.y,34,{angle:0,spread:TWO_PI,speedMin:55,speedMax:180,lifeMin:.2,lifeMax:.75,hue:190,hueVar:35,sizeMin:1,sizeMax:5,type:'spark'}); SFX.shieldBreak(); return true; }
+  update(dt,input,particles,game){ if(!this.alive)return; if(this.invulnTimer>0)this.invulnTimer-=dt; let dx=(input.right?1:0)-(input.left?1:0), dy=(input.down?1:0)-(input.up?1:0); const len=Math.hypot(dx,dy)||1; if(dx||dy){ dx/=len; dy/=len; } const speed=input.focus?CFG.playerFocusSpeed:CFG.playerSpeed; this.vx=dx*speed; this.vy=dy*speed; this.x=clamp(this.x+this.vx*dt,CFG.playerSize,W-CFG.playerSize); this.y=clamp(this.y+this.vy*dt,CFG.playerSize+30,H-CFG.playerSize); if((dx||dy)&&Math.random()<.42*game.performanceScale)particles.emit(this.x,this.y,1,{angle:Math.atan2(-dy,-dx),spread:.8,speedMin:15,speedMax:55,lifeMin:.12,lifeMax:.35,hue:200,hueVar:18,sizeMin:1,sizeMax:3,type:'spark'}); }
+  draw(ctx){ if(!this.alive)return; if(this.invulnTimer>0&&Math.floor(this.invulnTimer*12)%2===0)return; ctx.save();ctx.globalCompositeOperation='lighter'; const aura=ctx.createRadialGradient(this.x,this.y,4,this.x,this.y,CFG.playerSize*2.7); aura.addColorStop(0,'rgba(186,230,253,.6)');aura.addColorStop(.65,'rgba(56,189,248,.14)');aura.addColorStop(1,'transparent');ctx.fillStyle=aura;ctx.beginPath();ctx.arc(this.x,this.y,CFG.playerSize*2.7,0,TWO_PI);ctx.fill(); ctx.fillStyle='#bae6fd';ctx.shadowColor='#7dd3fc';ctx.shadowBlur=12;ctx.beginPath();ctx.arc(this.x,this.y,CFG.playerSize,0,TWO_PI);ctx.fill(); ctx.fillStyle='rgba(255,255,255,.72)';ctx.beginPath();ctx.arc(this.x-3,this.y-4,3,0,TWO_PI);ctx.fill(); if(this.shieldCharges>0){ ctx.strokeStyle='rgba(125,211,252,.8)';ctx.lineWidth=2;ctx.shadowBlur=18;ctx.beginPath();ctx.arc(this.x,this.y,CFG.playerSize+8+Math.sin(performance.now()*.006)*2,0,TWO_PI);ctx.stroke(); } ctx.restore(); }
+  hit(b){ if(this.invulnTimer>0||!this.alive)return false; const r=CFG.playerSize+b.size*.7; const dx=Math.abs(this.x-b.x),dy=Math.abs(this.y-b.y); if(dx>r||dy>r)return false; return dx*dx+dy*dy<r*r; }
 }
 
-// ═══════════════════════════════════════════
-//  Boss: Luna · 星门守卫
-// ═══════════════════════════════════════════
 class Boss {
-  constructor(game){
-    this.game=game;this.x=W/2;this.y=H*0.13;this.mood=2;
-    this.currentPattern=null;this.patternTimer=0;this.idleBob=0;this.auraOrbs=[];this.wingAngle=0;
-    this.nextBehavior=null;this.behaviorText='常规试炼';this.behaviorTimer=0;this.mercyTimer=0;this.focusPlayerTimer=0;
-    for(let i=0;i<8;i++)this.auraOrbs.push({angle:(TWO_PI/8)*i,dist:45+rand(-10,10),speed:rand(0.3,0.8),size:rand(2,4),hue:rand(260,310)});
-  }
-  reset(){ this.mood=2;this.currentPattern=null;this.patternTimer=0;this.nextBehavior=null;this.behaviorText='常规试炼';this.behaviorTimer=0;this.mercyTimer=0;this.focusPlayerTimer=0; }
-  get difficulty(){
-    const base=CFG.moodDifficultyMap[this.mood]||1.0;
-    return this.mercyTimer>0 ? base*0.55 : base;
-  }
+  constructor(game){ this.game=game; this.x=W/2; this.y=H*.14; this.mood=2; this.currentPattern=null; this.nextBehavior=null; this.behaviorText='常规试炼'; this.behaviorTimer=0; this.mercyTimer=0; this.focusPlayerTimer=0; this.rewardCooldown=0; this.expression='neutral'; this.motionIntent='idle'; this.motionTimer=0; this.auraOrbs=[]; for(let i=0;i<8;i++)this.auraOrbs.push({angle:TWO_PI*i/8,dist:45+rand(-9,9),speed:rand(.3,.8),size:rand(2,4),hue:rand(250,310)}); }
+  reset(){ this.mood=2; this.currentPattern=null; this.nextBehavior=null; this.behaviorText='常规试炼'; this.behaviorTimer=0; this.mercyTimer=0; this.focusPlayerTimer=0; this.rewardCooldown=0; this.expression='neutral'; this.motionIntent='idle'; }
   get moodName(){ return ['敌对','冷淡','中立','感兴趣','友善','欣赏'][this.mood]; }
-  get moodHue(){ return [0,20,270,240,200,170][this.mood]; }
-
-  update(dt,bullets,particles){
-    this.idleBob=Math.sin(performance.now()*0.002)*6;
-    this.wingAngle=Math.sin(performance.now()*0.003)*0.2;
-    this.x=W/2+Math.sin(performance.now()*0.001)*20;
-    this.mercyTimer=Math.max(0,this.mercyTimer-dt);
-    this.focusPlayerTimer=Math.max(0,this.focusPlayerTimer-dt);
-    this.behaviorTimer=Math.max(0,this.behaviorTimer-dt);
-    for(const orb of this.auraOrbs)orb.angle+=orb.speed*dt;
-    if(!this.currentPattern||this.currentPattern.isDone)this.pickPattern();
-    if(this.currentPattern)this.currentPattern.update(this,bullets,particles,dt,this.difficulty);
-    if(Math.random()<0.4){
-      const a=rand(0,TWO_PI),d=rand(40,80);
-      particles.emit(this.x+Math.cos(a)*d,this.y+Math.sin(a)*d,1,{angle:a+Math.PI/2,spread:0.4,speedMin:10,speedMax:30,lifeMin:0.5,lifeMax:1.2,hue:this.moodHue,hueVar:30,sizeMin:1,sizeMax:3,type:'spark'});
-    }
-  }
-
-  pickPattern(){
-    let idx = this.nextBehavior ? this.behaviorToPatternIndex(this.nextBehavior) : randi(0,PATTERNS.length-1);
-    if(idx==null) idx=randi(0,PATTERNS.length-1);
-    this.currentPattern=new PATTERNS[idx](this);
-    this.currentPattern.duration=3+Math.random()*5;
-    if(this.nextBehavior){
-      this.behaviorText=this.behaviorLabel(this.nextBehavior);
-      this.nextBehavior=null;
-      this.behaviorTimer=3.5;
-    }
-  }
-
-  behaviorToPatternIndex(action){
-    return {petal:1, rain:0, spiral:1, wave:2, chase:3, burst:4, laser:5, fragments:6, gravity:7, mercy:0, punish:5, clear:0}[action];
-  }
-
-  behaviorLabel(action){
-    return {
-      petal:'回应：花瓣弹幕', rain:'回应：星雨减压', spiral:'回应：螺旋试探', wave:'回应：波纹试炼', chase:'回应：追踪考验',
-      burst:'回应：蓄力爆发', laser:'回应：激光封锁', fragments:'回应：碎片分裂', gravity:'回应：重力井', mercy:'回应：放水', punish:'回应：加压', clear:'回应：清场'
-    }[action]||'回应：常规试炼';
-  }
-
-  applyDialogueBehavior(action){
-    this.nextBehavior=action;
-    if(action==='clear'){
-      this.game.bullets.clear();
-      this.mercyTimer=4;
-      this.behaviorText='Luna 清掉了场上的弹幕';
-      this.behaviorTimer=3.5;
-      SFX.mercy();
-      return;
-    }
-    if(action==='mercy'){
-      this.mercyTimer=7;
-      this.behaviorText='Luna 决定暂时放水';
-      SFX.mercy();
-    }else if(action==='punish'){
-      this.mercyTimer=0;
-      this.focusPlayerTimer=7;
-      this.behaviorText='Luna 开始针对你的位置施压';
-      SFX.taunt();
-    }else if(action==='laser') SFX.beam();
-    else if(action==='chase'||action==='gravity') SFX.slash();
-    else SFX.blossom();
-    this.currentPattern=null;
-    this.behaviorTimer=3.5;
-  }
-
-  draw(ctx){
-    ctx.save();const cx=this.x,cy=this.y+this.idleBob;
-    const ag=ctx.createRadialGradient(cx,cy,30,cx,cy,140);
-    ag.addColorStop(0,hsl(this.moodHue,70,60,0.25));ag.addColorStop(0.5,hsl(this.moodHue,60,40,0.08));ag.addColorStop(1,'transparent');
-    ctx.fillStyle=ag;ctx.globalCompositeOperation='lighter';
-    ctx.beginPath();ctx.arc(cx,cy,140,0,TWO_PI);ctx.fill();
-    for(const orb of this.auraOrbs){
-      const ox=cx+Math.cos(orb.angle)*orb.dist,oy=cy+Math.sin(orb.angle)*orb.dist*0.6;
-      ctx.fillStyle=hsl(orb.hue,80,70,0.7);ctx.shadowColor=hsl(orb.hue,90,70);ctx.shadowBlur=8;
-      ctx.beginPath();ctx.arc(ox,oy,orb.size,0,TWO_PI);ctx.fill();
-    }
-    ctx.globalAlpha=0.5;
-    for(let side=-1;side<=1;side+=2){
-      const wa=this.wingAngle*side;
-      ctx.fillStyle=hsl(270,60,65,0.4);
-      ctx.beginPath();ctx.moveTo(cx,cy-5);
-      ctx.quadraticCurveTo(cx+side*50,cy-30+wa*20,cx+side*80,cy-50+wa*30);
-      ctx.quadraticCurveTo(cx+side*70,cy+10,cx+side*30,cy+15);
-      ctx.quadraticCurveTo(cx+side*10,cy-5,cx,cy-10);
-      ctx.fill();
-    }
-    ctx.globalAlpha=1;
-    const hg=ctx.createRadialGradient(cx,cy-15,5,cx,cy-15,35);
-    hg.addColorStop(0,hsl(60,90,80,0.6));hg.addColorStop(0.6,hsl(270,70,60,0.15));hg.addColorStop(1,'transparent');
-    ctx.fillStyle=hg;ctx.beginPath();ctx.arc(cx,cy-18,35,0,TWO_PI);ctx.fill();
-    const bdg=ctx.createRadialGradient(cx,cy-2,4,cx,cy,22);
-    bdg.addColorStop(0,'#f5f0ff');bdg.addColorStop(0.3,'#d8ceff');bdg.addColorStop(0.7,'#7c3aed');bdg.addColorStop(1,'rgba(76,29,149,0)');
-    ctx.fillStyle=bdg;ctx.shadowColor='#a78bfa';ctx.shadowBlur=20;
-    ctx.beginPath();ctx.arc(cx,cy,22,0,TWO_PI);ctx.fill();
-    ctx.fillStyle='#fff';ctx.shadowColor='#fff';ctx.shadowBlur=6;
-    ctx.beginPath();ctx.arc(cx-6,cy-4,3.5,0,TWO_PI);ctx.fill();
-    ctx.beginPath();ctx.arc(cx+6,cy-4,3.5,0,TWO_PI);ctx.fill();
-    const px=this.game.player.x,lookX=Math.max(-1,Math.min(1,(px-cx)/W))*1.5;
-    ctx.fillStyle='#1a0040';ctx.shadowBlur=0;
-    ctx.beginPath();ctx.arc(cx-6+lookX,cy-4,1.8,0,TWO_PI);ctx.fill();
-    ctx.beginPath();ctx.arc(cx+6+lookX,cy-4,1.8,0,TWO_PI);ctx.fill();
-    ctx.fillStyle='rgba(216,206,255,0.6)';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.shadowBlur=0;
-    ctx.fillText('Luna',cx,cy-48);
-    if(this.behaviorTimer>0){
-      ctx.fillStyle='rgba(216,206,255,0.85)';ctx.font='12px sans-serif';
-      ctx.fillText(this.behaviorText,cx,cy+54);
-    }
-    ctx.restore();
-  }
-
-  drawPatternOverlay(ctx){
-    if(this.currentPattern&&this.currentPattern.drawLasers)this.currentPattern.drawLasers(ctx);
-    if(this.currentPattern&&this.currentPattern.drawWell)this.currentPattern.drawWell(ctx);
-  }
+  get moodHue(){ return [355,24,270,225,190,160][this.mood]; }
+  get difficulty(){ const base=CFG.moodDifficultyMap[this.mood]||1; return (this.mercyTimer>0?base*.58:base) * this.game.performanceScale; }
+  update(dt,bullets,particles){ this.rewardCooldown=Math.max(0,this.rewardCooldown-dt); this.mercyTimer=Math.max(0,this.mercyTimer-dt); this.focusPlayerTimer=Math.max(0,this.focusPlayerTimer-dt); this.motionTimer=Math.max(0,this.motionTimer-dt); this.behaviorTimer=Math.max(0,this.behaviorTimer-dt); const p=this.game.player; const baseX=W/2+Math.sin(performance.now()*.001)*18; if(this.motionIntent==='approach'&&this.motionTimer>0){ this.x+=((p.x)-this.x)*dt*.6; this.y+=((H*.20)-this.y)*dt*.7; } else if(this.motionIntent==='retreat'&&this.motionTimer>0){ this.x+=(baseX-this.x)*dt*.8; this.y+=((H*.10)-this.y)*dt*.8; } else { this.x+=(baseX-this.x)*dt*1.2; this.y+=((H*.14)-this.y)*dt*1.2; } for(const o of this.auraOrbs)o.angle+=o.speed*dt; if(!this.currentPattern||this.currentPattern.isDone)this.pickPattern(); if(this.currentPattern)this.currentPattern.update(this,bullets,particles,dt,this.difficulty); if(Math.random()<.28*this.game.performanceScale){ const a=rand(0,TWO_PI),d=rand(35,75); particles.emit(this.x+Math.cos(a)*d,this.y+Math.sin(a)*d,1,{angle:a+Math.PI,spread:.5,speedMin:6,speedMax:25,lifeMin:.35,lifeMax:1,hue:this.moodHue,hueVar:25,sizeMin:1,sizeMax:3,type:'spark'}); } }
+  pickPattern(){ let idx=this.nextBehavior?this.behaviorToPatternIndex(this.nextBehavior):randi(0,PATTERNS.length-1); if(idx==null)idx=randi(0,PATTERNS.length-1); this.currentPattern=new PATTERNS[idx](this); this.currentPattern.duration=3+Math.random()*4.5; if(this.nextBehavior){ this.behaviorText=this.behaviorLabel(this.nextBehavior); this.nextBehavior=null; this.behaviorTimer=3.2; } }
+  behaviorToPatternIndex(action){ return {rain:0,petal:1,spiral:1,wave:2,chase:3,burst:4,laser:5,punish:5,fragments:6,gravity:7,mercy:0,clear:0}[action]; }
+  behaviorLabel(a){ return {rain:'回应：星雨',petal:'回应：花瓣弹幕',spiral:'回应：螺旋花',wave:'回应：波纹试炼',chase:'回应：追踪考验',burst:'回应：蓄力爆发',laser:'回应：激光封锁',punish:'回应：加压',fragments:'回应：碎片分裂',gravity:'回应：重力井',mercy:'回应：放水',clear:'回应：清场'}[a]||'回应：常规试炼'; }
+  applyDialogueBehavior(action, gameplay={}){ if(gameplay.clearBullets){ this.game.bullets.clear(); this.behaviorText='Luna 清掉了弹幕'; SFX.mercy(); } if(gameplay.reward==='shield') this.giveShield('她把一枚护盾星交给了你。'); if(gameplay.bossExpression) this.expression=gameplay.bossExpression; if(gameplay.bossMotion){ this.motionIntent=gameplay.bossMotion; this.motionTimer=4.5; } this.nextBehavior=action||'wave'; if(action==='clear'){ this.game.bullets.clear(); this.mercyTimer=4; SFX.mercy(); } else if(action==='mercy'){ this.mercyTimer=7; SFX.mercy(); } else if(action==='punish'){ this.focusPlayerTimer=7; this.expression='annoyed'; SFX.slash(); } else if(action==='laser')SFX.beam(); else if(action==='chase'||action==='gravity')SFX.slash(); else SFX.blossom(); this.currentPattern=null; this.behaviorText=this.behaviorLabel(action); this.behaviorTimer=3.4; }
+  giveShield(line){ if(this.rewardCooldown>0)return; this.rewardCooldown=12; this.game.pickups.spawnShield(this.x+rand(-35,35),this.y+45); if(line)this.game.showSystemLine(line); }
+  draw(ctx){ ctx.save(); const cx=this.x,cy=this.y+Math.sin(performance.now()*.002)*5; ctx.globalCompositeOperation='lighter'; const aura=ctx.createRadialGradient(cx,cy,30,cx,cy,138); aura.addColorStop(0,hsl(this.moodHue,70,60,.24)); aura.addColorStop(.55,hsl(this.moodHue,60,40,.075)); aura.addColorStop(1,'transparent'); ctx.fillStyle=aura; ctx.beginPath();ctx.arc(cx,cy,138,0,TWO_PI);ctx.fill(); for(const o of this.auraOrbs){ const ox=cx+Math.cos(o.angle)*o.dist,oy=cy+Math.sin(o.angle)*o.dist*.62; ctx.fillStyle=hsl(o.hue,80,72,.65); ctx.shadowColor=hsl(o.hue,90,70); ctx.shadowBlur=8; ctx.beginPath();ctx.arc(ox,oy,o.size,0,TWO_PI);ctx.fill(); } ctx.globalAlpha=.48; for(let side=-1;side<=1;side+=2){ ctx.fillStyle=hsl(270,62,66,.38);ctx.beginPath();ctx.moveTo(cx,cy-4);ctx.quadraticCurveTo(cx+side*52,cy-34,cx+side*86,cy-48);ctx.quadraticCurveTo(cx+side*74,cy+12,cx+side*28,cy+18);ctx.quadraticCurveTo(cx+side*10,cy-5,cx,cy-8);ctx.fill(); } ctx.globalAlpha=1; const body=ctx.createRadialGradient(cx,cy-2,4,cx,cy,23); body.addColorStop(0,'#fff');body.addColorStop(.32,'#ddd6fe');body.addColorStop(.72,'#7c3aed');body.addColorStop(1,'rgba(76,29,149,0)');ctx.fillStyle=body;ctx.shadowColor='#a78bfa';ctx.shadowBlur=19;ctx.beginPath();ctx.arc(cx,cy,23,0,TWO_PI);ctx.fill(); const eyeY=this.expression==='sad'?cy-2:cy-4; ctx.fillStyle='#fff';ctx.shadowColor='#fff';ctx.shadowBlur=6;ctx.beginPath();ctx.arc(cx-6,eyeY,3.4,0,TWO_PI);ctx.fill();ctx.beginPath();ctx.arc(cx+6,eyeY,3.4,0,TWO_PI);ctx.fill(); const look=clamp((this.game.player.x-cx)/W,-1,1)*1.6; ctx.fillStyle='#160039';ctx.shadowBlur=0;ctx.beginPath();ctx.arc(cx-6+look,eyeY,1.7,0,TWO_PI);ctx.fill();ctx.beginPath();ctx.arc(cx+6+look,eyeY,1.7,0,TWO_PI);ctx.fill(); if(this.expression==='smile'){ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,cy+4,6,0.15*Math.PI,.85*Math.PI);ctx.stroke();} ctx.fillStyle='rgba(235,230,255,.65)';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('Luna',cx,cy-50); if(this.behaviorTimer>0){ctx.fillStyle='rgba(235,230,255,.86)';ctx.font='12px sans-serif';ctx.fillText(this.behaviorText,cx,cy+56);} ctx.restore(); }
+  drawPatternOverlay(ctx){ if(this.currentPattern&&this.currentPattern.drawLasers)this.currentPattern.drawLasers(ctx); if(this.currentPattern&&this.currentPattern.drawWell)this.currentPattern.drawWell(ctx); }
 }
 
-// ═══════════════════════════════════════════
-//  AI 对话系统 (本地 + 远程 API)
-// ═══════════════════════════════════════════
 class DialogueAI {
-  constructor(){ this.history=[];this.conversationCount=0; }
-
-  // ── Boss 人设 Prompt ──
-  getSystemPrompt(){
-    return `你是一个叫 Luna 的角色，你是星门的守护者，负责考验进入星门的人。
-
-关于你（Luna）：
-- 你是一个冷静、专业但有点冷淡的守护者。你已经独自守护星门数百年了。
-- 你说话像一个正常人，不夸张，不戏剧化。你会用正常的语气回应。
-- 你对真诚的人会慢慢放下戒备，但讨厌虚伪、傲慢和粗鲁。
-- 你偶尔会流露出一点幽默感，但大多数时候是克制和观察的态度。
-- 你正在用弹幕攻击考验对方，但会根据对话的态度调整攻势的难度。
-- 你的心情会受对话内容影响：被尊重和理解时会稍微放水，被冒犯时会加强攻势。
-
-回复规则：
-1. 用中文回复，1-3句话即可，不要太长
-2. 在回复最后标注心情变化，例如 [mood:+1]、[mood:-1]、[mood:0]，范围 -2 到 +2
-3. 在回复最后标注你下一轮会采取的行为，例如 [action:mercy]
-4. action 只能从这些值里选一个：mercy（放水）、clear（清掉场上弹幕）、petal（花瓣弹幕）、wave（波纹弹幕）、chase（追踪弹幕）、laser（激光封锁）、gravity（重力井）、fragments（碎片分裂）、burst（蓄力爆发）、punish（加压）
-5. 行为选择要和玩家说的话相关：真诚/道歉/关心→mercy或clear；问故事→wave或petal；挑衅/辱骂→punish或laser；要求更刺激→chase/burst/gravity；夸你→petal；沉默或普通聊天→wave
-6. 保持自然对话，不要用过于诗意或夸张的表达
-7. 可以偶尔展现你的个性和背景故事，但不要主动长篇大论
-
-当前心情（0=敌对 5=欣赏）：${this._lastMood||2}
-对话次数：${this.conversationCount}`;
-  }
-
-  // ── 本地关键词分析 ──
-  analyze(text){
-    const lower=text.toLowerCase();
-    const r={sentiment:0,topics:[],keywords:[],isHostile:false,isKind:false,isCurious:false,isFlattering:false,wantsHarder:false,wantsEasy:false,apologizes:false};
-
-    const positive=['好','帮','谢','善良','不错','有意思','有趣','厉害','佩服','尊重','理解','懂','厉害','棒','赞','cool','nice'];
-    const negative=['弱','垃圾','无聊','废物','滚','菜','loser','noob','弱智','白痴'];
-    const hostile=['杀','灭','打','死','攻击','揍','干','fuck','shit','傻逼','sb'];
-    const kind=['理解','懂你','倾听','朋友','同伴','和平','尊重','相信','关心','愿意','辛苦','不容易'];
-    const curious=['为什么','什么','如何','怎么','故事','曾经','过去','你是谁','原因','哪里','来自','经历','多久','守护','星门'];
-    const flattering=['强大','厉害','了不起','佩服','崇拜','敬仰','尊敬','优雅','美','好厉害','admire','cool','帅'];
-    const harder=['更难','加难度','刺激','认真点','别放水','来狠点','更强','harder','challenge'];
-    const easier=['简单','放水','太难','轻点','别太狠','休息','饶了我','easy','mercy'];
-    const apologies=['抱歉','对不起','不好意思','刚才我不该','sorry'];
-
-    for(const w of positive)if(lower.includes(w))r.sentiment+=0.2;
-    for(const w of negative)if(lower.includes(w))r.sentiment-=0.3;
-    for(const w of hostile){if(lower.includes(w)){r.sentiment-=0.25;r.isHostile=true;r.topics.push('hostile');}}
-    for(const w of kind){if(lower.includes(w)){r.sentiment+=0.2;r.isKind=true;r.topics.push('kindness');}}
-    for(const w of curious){if(lower.includes(w)){r.isCurious=true;r.topics.push('curiosity');}}
-    for(const w of flattering){if(lower.includes(w)){r.sentiment+=0.15;r.isFlattering=true;r.topics.push('flattery');}}
-    for(const w of harder){if(lower.includes(w)){r.wantsHarder=true;r.topics.push('harder');}}
-    for(const w of easier){if(lower.includes(w)){r.wantsEasy=true;r.topics.push('easier');}}
-    for(const w of apologies){if(lower.includes(w)){r.apologizes=true;r.sentiment+=0.35;r.topics.push('apology');}}
-
-    r.sentiment=Math.max(-1,Math.min(1,r.sentiment));
-    return r;
-  }
-
-  // ── 根据对话内容决定 Boss 下一轮行为 ──
-  chooseAction(analysis){
-    if(analysis.apologizes || analysis.wantsEasy) return 'mercy';
-    if(analysis.isKind && analysis.sentiment>0.35) return Math.random()<0.45 ? 'clear' : 'petal';
-    if(analysis.wantsHarder) return pick(['chase','burst','gravity']);
-    if(analysis.isHostile) return pick(['punish','laser','fragments']);
-    if(analysis.isCurious) return pick(['wave','gravity','petal']);
-    if(analysis.isFlattering) return pick(['petal','wave']);
-    if(analysis.sentiment>0.45) return pick(['mercy','petal']);
-    if(analysis.sentiment<-0.35) return pick(['laser','fragments']);
-    return pick(['wave','spiral','rain']);
-  }
-
-  // ── 本地回应池 ──
-  getLocalResponse(analysis, mood){
-    this.conversationCount++;
-    let cat='neutral';
-    if(analysis.wantsHarder)cat='harder';
-    else if(analysis.wantsEasy||analysis.apologizes)cat='mercy';
-    else if(analysis.isHostile)cat='hostile';
-    else if(analysis.isKind&&analysis.sentiment>0.3)cat='kind';
-    else if(analysis.isCurious&&analysis.sentiment>=0)cat='curious';
-    else if(analysis.isFlattering&&analysis.sentiment>0.2)cat='flattered';
-    else if(analysis.sentiment>0.4)cat='pleased';
-    else if(analysis.sentiment<-0.4)cat='annoyed';
-    else if(analysis.isCurious)cat='question';
-
-    const pool={
-      neutral:[
-        "嗯，我听着呢。你有什么想说的？",
-        "（看了你一眼）继续说吧，我习惯在战斗中观察一个人。",
-        "你倒是挺有闲心的，这种时候还有话说。",
-        "说吧。反正这场考验也不会因为你聊天就停下来。",
-      ],
-      harder:[
-        "想要更刺激一点？可以。那我就不按普通节奏来了。",
-        "行，你自己要求的。接下来我会更主动地压你的位置。",
-      ],
-      mercy:[
-        "可以，先缓一轮。能开口求稳也算是判断力的一部分。",
-        "好，我会收一点力。别误会，这不是结束，只是给你调整节奏。",
-      ],
-      hostile:[
-        "……你这样说话，是觉得我会手下留情吗？恰恰相反。",
-        "（她眼神冷了下来）你可以继续，但接下来的弹幕会告诉你答案。",
-        "哈。行，我记住了。来吧，看看你的身手配不配得上你的脾气。",
-        "有意思。那就用行动说话吧——如果你能撑得住的话。",
-      ],
-      kind:[
-        "（她的表情稍微松动了一点）……很久没人这么跟我说过话了。谢谢。",
-        "你倒是挺会说话的。在这么多挑战者里，你算是比较有礼貌的那一类。",
-        "（她的语气缓和了一些）你的态度让我有点意外。继续保持。",
-      ],
-      curious:[
-        "你想知道我的事？守护星门这几百年，确实有些故事……不过说来话长。",
-        "为什么会在这里？职责吧。星门总要有人看守，恰好是我而已。",
-        "（她想了想）你问的这个问题，上一个挑战者也问过。他没能撑到第二轮。",
-      ],
-      flattered:[
-        "（微微挑眉）说这些好听的也没用，弹幕不会停的。……不过，听着还行。",
-        "行了，别夸了。专心躲你的弹幕去。",
-      ],
-      pleased:[
-        "跟你聊天还挺舒服的。行，这场算你走运，我稍微放点水。",
-        "（嘴角微微一扬）你这个人倒是挺有意思。好，接下来我应该会手下留情一点。",
-      ],
-      annoyed:[
-        "你这话听得我想加难度。算了，不值得跟你计较——但弹幕不会客气。",
-        "（面无表情）说完了吗？说完了就继续。这次会密集一点的。",
-      ],
-      question:[
-        "这个问题……等你多撑几轮再说吧。",
-        "我可以回答你，但你得先证明你值得这个答案。",
-      ],
-    };
-    return pick(pool[cat]||pool.neutral);
-  }
-
-  // ── 远程 AI 调用 ──
-  async callRemoteAPI(playerText){
-    this._lastMood = this._lastMood||2;
-    const messages=[
-      {role:'system',content:this.getSystemPrompt()},
-    ];
-    // Add recent history
-    const recent=this.history.slice(-6);
-    for(const h of recent){
-      messages.push({role:'user',content:h.player});
-      messages.push({role:'assistant',content:h.response});
-    }
-    messages.push({role:'user',content:playerText});
-
-    const resp=await fetch(AI.url,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${AI.key}`},
-      body:JSON.stringify({model:AI.model,messages,temperature:0.8,max_tokens:200}),
-    });
-    if(!resp.ok)throw new Error(`API error: ${resp.status}`);
-    const data=await resp.json();
-    return data.choices[0].message.content;
-  }
-
-  // ── 解析 AI 回应中的心情与行为标记 ──
-  parseAIResponse(response){
-    const moodMatch=response.match(/\[mood:([+-]?\d+)\]/i);
-    const actionMatch=response.match(/\[action:([a-z]+)\]/i);
-    const moodChange=moodMatch?Math.max(-2,Math.min(2,parseInt(moodMatch[1]))):0;
-    const validActions=['mercy','clear','petal','wave','chase','laser','gravity','fragments','burst','punish','spiral','rain'];
-    const action=actionMatch&&validActions.includes(actionMatch[1])?actionMatch[1]:null;
-    const text=response.replace(/\[mood:[+-]?\d+\]/ig,'').replace(/\[action:[a-z]+\]/ig,'').trim();
-    return {text,moodChange,action};
-  }
-
-  // ── 统一入口：获取回应 + 心情变化 ──
-  async getResponse(playerText, analysis, currentMood){
-    this._lastMood=currentMood;
-
-    if(AI.enabled && AI.key){
-      try{
-        const raw=await this.callRemoteAPI(playerText);
-        const parsed=this.parseAIResponse(raw);
-        this.conversationCount++;
-        this.history.push({player:playerText,response:parsed.text,moodChange:parsed.moodChange,action:parsed.action});
-        return {text:parsed.text,moodChange:parsed.moodChange,action:parsed.action||this.chooseAction(analysis),isAI:true};
-      }catch(e){
-        console.warn('AI API 调用失败，回退到本地对话:',e.message);
-      }
-    }
-
-    // 本地回退
-    const text=this.getLocalResponse(analysis,currentMood);
-    const action=this.chooseAction(analysis);
-    const moodChange=Math.round((analysis.sentiment*0.6+(analysis.isKind?0.4:0)+(analysis.isHostile?-0.5:0)+(analysis.isFlattering?0.25:0)+(analysis.apologizes?0.35:0))*2)/2;
-    this.history.push({player:playerText,response:text,moodChange,action});
-    return {text,moodChange:Math.max(-2,Math.min(2,moodChange)),action,isAI:false};
-  }
-
-  // ── 对话的游戏效果 ──
-  getGameplayEffect(moodChange, newMood, action){
-    const eff=[];
-    const actionText={
-      mercy:'下一轮：她会放水，弹幕速度和密度下降', clear:'下一轮：她清掉当前弹幕，给你喘息空间', petal:'下一轮：花瓣形弹幕',
-      wave:'下一轮：波纹弹幕', chase:'下一轮：追踪弹幕会主动压你的位置', laser:'下一轮：激光封锁路线', gravity:'下一轮：重力井会改变弹幕流向',
-      fragments:'下一轮：碎片弹幕会分裂', burst:'下一轮：蓄力后爆发', punish:'下一轮：她会针对你的位置加压', spiral:'下一轮：螺旋弹幕', rain:'下一轮：星雨弹幕'
-    };
-    if(actionText[action])eff.push({text:actionText[action],hue:action==='punish'||action==='laser'?0:action==='mercy'||action==='clear'?170:230,type:'action'});
-    if(moodChange>=1)eff.push({text:'Luna 对你的态度明显好转',hue:170,type:'buff'});
-    else if(moodChange<=-1)eff.push({text:'Luna 的态度明显变差',hue:0,type:'debuff'});
-    else if(moodChange>0)eff.push({text:'Luna 对你的印象稍微好了一点',hue:200,type:'slight'});
-    else if(moodChange<0)eff.push({text:'Luna 对你的印象稍微变差了一些',hue:30,type:'slight'});
-    else eff.push({text:'Luna 的态度没有明显变化',hue:260,type:'neutral'});
-
-    if(newMood<=0)eff.push({text:'她现在很冷淡，基础弹幕会更密集',hue:0,type:'danger'});
-    else if(newMood>=5)eff.push({text:'她现在对你很友善，基础弹幕会更轻',hue:170,type:'miracle'});
-    return eff;
-  }
+  constructor(game){ this.game=game; this.history=[]; this.conversationCount=0; }
+  analyze(text){ const lower=text.toLowerCase(); const r={sentiment:0,topics:[],isHostile:false,isKind:false,isCurious:false,isFlattering:false,wantsHarder:false,wantsEasy:false,apologizes:false}; const lists={positive:['好','谢谢','理解','不错','有趣','尊重','相信','辛苦','愿意','nice'],negative:['垃圾','无聊','弱','滚','菜','白痴'],hostile:['杀','打','死','攻击','傻逼','fuck','shit'],kind:['理解','朋友','关心','尊重','辛苦','孤独','陪你','相信'],curious:['为什么','什么','故事','过去','你是谁','星门','职责','守护','孤独','选择','答案'],flattering:['厉害','强大','佩服','好看','美','帅','优雅'],harder:['更难','刺激','认真点','别放水','来狠点','challenge'],easier:['简单','放水','太难','轻点','休息','饶了我','mercy'],apology:['抱歉','对不起','不好意思','sorry']}; for(const w of lists.positive)if(lower.includes(w))r.sentiment+=.2; for(const w of lists.negative)if(lower.includes(w))r.sentiment-=.32; for(const w of lists.hostile)if(lower.includes(w)){r.sentiment-=.35;r.isHostile=true;r.topics.push('hostile');} for(const w of lists.kind)if(lower.includes(w)){r.sentiment+=.22;r.isKind=true;r.topics.push('kindness');} for(const w of lists.curious)if(lower.includes(w)){r.isCurious=true;r.topics.push('curiosity');} for(const w of lists.flattering)if(lower.includes(w)){r.sentiment+=.14;r.isFlattering=true;r.topics.push('flattery');} for(const w of lists.harder)if(lower.includes(w)){r.wantsHarder=true;r.topics.push('harder');} for(const w of lists.easier)if(lower.includes(w)){r.wantsEasy=true;r.topics.push('easier');} for(const w of lists.apology)if(lower.includes(w)){r.apologizes=true;r.sentiment+=.35;r.topics.push('apology');} r.sentiment=clamp(r.sentiment,-1,1); return r; }
+  chooseAction(a){ if(a.apologizes||a.wantsEasy)return 'mercy'; if(a.isKind&&a.sentiment>.35)return Math.random()<.35?'clear':'petal'; if(a.wantsHarder)return pick(['chase','burst','gravity']); if(a.isHostile)return pick(['punish','laser','fragments']); if(a.isCurious)return pick(['wave','gravity','petal']); if(a.isFlattering)return pick(['petal','wave']); if(a.sentiment>.45)return pick(['mercy','petal']); if(a.sentiment<-.35)return pick(['laser','fragments']); return pick(['wave','spiral','rain']); }
+  localResponse(text,analysis){ let cat='neutral'; if(analysis.wantsHarder)cat='harder'; else if(analysis.wantsEasy||analysis.apologizes)cat='mercy'; else if(analysis.isHostile)cat='hostile'; else if(analysis.isKind)cat='kind'; else if(analysis.isCurious)cat='curious'; else if(analysis.isFlattering)cat='flattered'; const pool={neutral:['我在听。你可以问星门，也可以问我为什么守在这里。','你还挺镇定。大多数人这时候只顾着躲。'],harder:['想让我认真点？可以，但这是你自己提的。','好，那下一轮我会更主动地压你的位置。'],mercy:['可以，先缓一轮。能判断什么时候该求稳，也是一种能力。','行，我会收一点力。别把这当成结束。'],hostile:['你这样说话，我很难给你开方便之门。','好吧，那我们就先用行动沟通。'],kind:['你说得很认真。我不讨厌这种态度。','很少有人会关心守门人本身。谢谢。'],curious:['星门不是普通的门，它更像一道选择题。我负责看清每个答案。','我守在这里很久了。久到我有时会忘记自己是不是也想离开。'],flattered:['夸我也不会让试炼直接结束，不过我可以稍微温柔一点。','嘴挺甜。专心点，别被花瓣弹幕骗了。']}; return pick(pool[cat]||pool.neutral); }
+  suggestedReplies(){ const mood=this.game.boss.mood; if(mood<=1)return ['刚才是我太急了，对不起','你为什么这么讨厌闯入者？','我会认真完成试炼']; if(mood===2)return ['你为什么守在星门前？','星门后面是什么？','能不能稍微放水？']; if(mood<=4)return ['你一个人在这里会孤独吗？','你自己的选择是什么？','我想更了解星门']; return ['如果我通过，你会离开这里吗？','我能帮你做些什么？','让我们认真完成这场试炼']; }
+  parseTaggedResponse(response){ const mood=response.match(/\[mood:([+-]?\d+)\]/i); const action=response.match(/\[action:([a-z_]+)\]/i); return { ok:true, text:response.replace(/\[mood:[+-]?\d+\]/ig,'').replace(/\[action:[a-z_]+\]/ig,'').trim(), moodDelta:mood?clamp(parseInt(mood[1]),-2,2):0, action:action?action[1]:null, chat:{continue:false,suggestedReplies:this.suggestedReplies()}, story:{stageDelta:0,hint:''}, gameplay:{} }; }
+  async callRemote(playerText,analysis){ const payload={ playerText, language:'zh-CN', game:this.game.getAIContext(), history:this.history.slice(-8) }; if(AI.mode==='default'){ const r=await fetch('/api/dialogue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(!r.ok)throw new Error('default AI unavailable'); return await r.json(); } if(AI.mode==='custom'&&AI.key){ const messages=[{role:'system',content:'你是 H5 弹幕游戏中的 Luna，星门守卫。请用中文自然回复，并在最后附上 [mood:+1] 和 [action:petal] 这样的标记。action 从 mercy,clear,petal,wave,chase,laser,gravity,fragments,burst,punish,spiral,rain 中选择。'},...this.history.slice(-6).flatMap(h=>[{role:'user',content:h.player},{role:'assistant',content:h.boss}]),{role:'user',content:playerText}]; const r=await fetch(AI.url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${AI.key}`},body:JSON.stringify({model:AI.model,messages,temperature:.8,max_tokens:260})}); if(!r.ok)throw new Error('custom AI unavailable'); const data=await r.json(); return this.parseTaggedResponse(data.choices?.[0]?.message?.content||'我听见了。[mood:0] [action:wave]'); } throw new Error('local mode'); }
+  normalizeResult(raw,analysis){ if(raw&&raw.ok){ return { text:raw.text||'我听见了。', moodDelta:clamp(Number(raw.moodDelta||0),-2,2), action:raw.action||this.chooseAction(analysis), chat:raw.chat||{}, story:raw.story||{}, gameplay:raw.gameplay||{}, isAI:true }; } return null; }
+  async getResponse(playerText,analysis){ if(AI.mode!=='local'){ try{ const raw=await this.callRemote(playerText,analysis); const result=this.normalizeResult(raw,analysis); if(result)return result; }catch(e){ console.warn(e.message); this.game.showSystemLine('在线 AI 暂时不可用，已切换成本地回应。'); } } const moodDelta=Math.round((analysis.sentiment*.65+(analysis.isKind?.35:0)+(analysis.isHostile?-.55:0)+(analysis.apologizes?.35:0))*2)/2; return { text:this.localResponse(playerText,analysis), moodDelta:clamp(moodDelta,-2,2), action:this.chooseAction(analysis), chat:{continue:this.game.boss.mood>=3&&this.game.dialogueTurn<this.game.maxDialogueTurns-1&&Math.random()<.55,suggestedReplies:this.suggestedReplies()}, story:this.localStory(playerText,analysis), gameplay:this.localGameplay(analysis), isAI:false }; }
+  localStory(text,analysis){ if(analysis.isCurious){ const hint='Luna 对这个话题有反应。继续问星门、职责或她自己的选择，可能会推进剧情。'; return {stageDelta:1,flag:'curious_about_luna',hint}; } return {stageDelta:0,hint:''}; }
+  localGameplay(analysis){ if((analysis.isKind||analysis.apologizes)&&Math.random()<.35)return {reward:'shield',bossExpression:'smile',bossMotion:'approach'}; if(analysis.isHostile)return {bossExpression:'annoyed',bossMotion:'retreat'}; if(analysis.isCurious)return {bossExpression:'curious',bossMotion:'approach'}; return {}; }
 }
 
-// ═══════════════════════════════════════════
-//  背景渲染
-// ═══════════════════════════════════════════
-class Background {
-  constructor(){ this.stars=[];this.nebulae=[];this.generateStars(); }
-  generateStars(){
-    this.stars=[];
-    for(let i=0;i<180;i++)this.stars.push({x:rand(0,W),y:rand(0,H),size:rand(0.4,2.2),twinkle:rand(0,TWO_PI),twinkleSpeed:rand(1,4),hue:rand(220,320)});
-    this.nebulae=[];
-    for(let i=0;i<4;i++)this.nebulae.push({x:rand(0,W),y:rand(0,H),r:rand(80,200),hue:rand(250,310),alpha:rand(0.02,0.06)});
-  }
-  draw(ctx){
-    const bg=ctx.createRadialGradient(W/2,H*0.2,0,W/2,H/2,Math.max(W,H));
-    bg.addColorStop(0,'#12102a');bg.addColorStop(0.5,'#0c0a1a');bg.addColorStop(1,'#06060f');
-    ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
-    ctx.globalCompositeOperation='lighter';
-    for(const n of this.nebulae){
-      const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);
-      g.addColorStop(0,hsl(n.hue,60,50,n.alpha));g.addColorStop(0.5,hsl(n.hue,50,30,n.alpha*0.5));g.addColorStop(1,'transparent');
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,TWO_PI);ctx.fill();
-    }
-    const now=performance.now()*0.001;
-    for(const s of this.stars){
-      const t=0.4+0.6*Math.sin(now*s.twinkleSpeed+s.twinkle);
-      ctx.fillStyle=hsl(s.hue,40,85,t);ctx.shadowColor=hsl(s.hue,50,70);ctx.shadowBlur=s.size*2;
-      ctx.fillRect(s.x-s.size/2,s.y-s.size/2,s.size,s.size);
-    }
-    ctx.shadowBlur=0;ctx.globalCompositeOperation='source-over';
-  }
-  resize(){ this.generateStars(); }
-}
+class Background { constructor(){ this.stars=[];this.nebulae=[];this.cache=null;this.generate(); } generate(){ this.stars=[]; for(let i=0;i<150;i++)this.stars.push({x:rand(0,W),y:rand(0,H),s:rand(.5,2),t:rand(0,TWO_PI),v:rand(.6,2.8),h:rand(220,315)}); this.nebulae=[]; for(let i=0;i<4;i++)this.nebulae.push({x:rand(0,W),y:rand(0,H),r:rand(120,260),h:rand(240,310),a:rand(.025,.055)}); } draw(ctx,scale=1){ const bg=ctx.createRadialGradient(W/2,H*.2,0,W/2,H/2,Math.max(W,H)); bg.addColorStop(0,'#12102a');bg.addColorStop(.55,'#0b0a1a');bg.addColorStop(1,'#05050d');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);ctx.globalCompositeOperation='lighter'; for(const n of this.nebulae){ const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);g.addColorStop(0,hsl(n.h,60,48,n.a));g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,TWO_PI);ctx.fill(); } const now=performance.now()*.001; ctx.shadowBlur=0; const step=scale<.75?2:1; for(let i=0;i<this.stars.length;i+=step){ const s=this.stars[i],a=.35+.65*Math.sin(now*s.v+s.t);ctx.fillStyle=hsl(s.h,45,86,a);ctx.fillRect(s.x,s.y,s.s,s.s); } ctx.globalCompositeOperation='source-over'; } }
 
-// ═══════════════════════════════════════════
-//  主游戏类
-// ═══════════════════════════════════════════
 class Game {
-  constructor(){
-    this.background=new Background();
-    this.player=new Player();
-    this.boss=new Boss(this);
-    this.bullets=new BulletManager();
-    this.particles=new ParticlePool();
-    this.dialogueAI=new DialogueAI();
-
-    this.state='TITLE';
-    this.lives=CFG.maxLives;
-    this.survivalTime=0;
-    this.dialogueCooldown=0;
-    this.dialogueMessages=[];
-    this.activeEffects=[];
-    this.screenShake=0;
-    this.screenFlash=0;
-    this.groundY=H*0.88;
-    this.totalConversations=0;
-
-    this.input={left:false,right:false,jump:false,jumpQueued:false};
-    this.setupInput();
-    this.lastTime=performance.now();
-    this.running=false;
-  }
-
-  setupInput(){
-    window.addEventListener('keydown',e=>{
-      if(this.state==='DIALOGUE'){
-        if(e.key==='Enter'){e.preventDefault();this.sendDialogue();}
-        if(e.key==='Escape'){e.preventDefault();this.endDialogue();}
-        return;
-      }
-      if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')this.input.left=true;
-      if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')this.input.right=true;
-      if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'||e.key===' '){e.preventDefault();this.pressJump();}
-      if(e.key==='Enter'&&this.state==='TITLE'){e.preventDefault();this.start();}
-    });
-    window.addEventListener('keyup',e=>{
-      if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')this.input.left=false;
-      if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')this.input.right=false;
-      if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'||e.key===' ')this.releaseJump();
-    });
-    const updateTouchInput=e=>{
-      if(this.state==='DIALOGUE')return;
-      const t=e.touches[0];
-      this.input.left=t.clientX<W*0.42;
-      this.input.right=t.clientX>W*0.58;
-    };
-    canvas.addEventListener('touchstart',e=>{
-      if(this.state==='DIALOGUE')return;
-      updateTouchInput(e);
-      const t=e.touches[0];
-      if(t.clientY<H*0.7)this.pressJump();
-    },{passive:true});
-    canvas.addEventListener('touchmove',updateTouchInput,{passive:true});
-    canvas.addEventListener('touchend',()=>{this.input.left=false;this.input.right=false;this.releaseJump();});
-    canvas.addEventListener('touchcancel',()=>{this.input.left=false;this.input.right=false;this.releaseJump();});
-  }
-
-  pressJump(){
-    this.input.jump=true;
-    this.input.jumpQueued=true;
-  }
-
-  releaseJump(){
-    this.input.jump=false;
-  }
-
-  // ── AI 配置面板 ──
-  toggleAIConfig(){
-    const panel=document.getElementById('ai-config');
-    const showing=panel.classList.contains('show');
-    if(showing){
-      // Save
-      AI.url=document.getElementById('ai-url').value;
-      AI.key=document.getElementById('ai-key').value;
-      AI.model=document.getElementById('ai-model').value;
-      panel.classList.remove('show');
-    }else{
-      document.getElementById('ai-url').value=AI.url;
-      document.getElementById('ai-key').value=AI.key;
-      document.getElementById('ai-model').value=AI.model;
-      document.getElementById('ai-toggle').classList.toggle('on',AI.enabled);
-      panel.classList.add('show');
-    }
-  }
-  toggleAI(){
-    AI.enabled=!AI.enabled;
-    document.getElementById('ai-toggle').classList.toggle('on',AI.enabled);
-  }
-
-  // ── 游戏流程 ──
-  start(){
-    SFX.init();
-    document.getElementById('title-screen').classList.add('hidden');
-    document.getElementById('gameover-screen').classList.add('hidden');
-    this.resetGame();
-    this.state='PLAYING';this.running=true;this.lastTime=performance.now();
-    this.survivalTime=0;this.dialogueCooldown=CFG.dialogueInterval;
-    this.totalConversations=0;this.lives=CFG.maxLives;
-    this.updateHUD();
-    SFX.startAmbient();
-    if(!this._loopStarted){this._loopStarted=true;requestAnimationFrame(t=>this.loop(t));}
-  }
-
-  resetGame(){
-    this.player.reset();this.boss.reset();this.bullets.clear();
-    this.particles=new ParticlePool();this.survivalTime=0;
-    this.dialogueCooldown=CFG.dialogueInterval;this.dialogueMessages=[];
-    this.activeEffects=[];this.screenShake=0;this.screenFlash=0;
-  }
-
-  respawn(){
-    if(this.lives<=0){this.start();return;}
-    document.getElementById('gameover-screen').classList.add('hidden');
-    this.player.reset();this.player.invulnTimer=CFG.invulnDuration;
-    this.bullets.clear();this.screenShake=0;this.screenFlash=0;
-    this.dialogueCooldown=Math.max(this.dialogueCooldown,8);
-    this.state='PLAYING';
-    SFX.respawn();
-    const lines=[
-      '又回来了？看来你不是那么容易放弃的人。',
-      '还来？行吧，那就继续。',
-      '又见面了。这次能撑多久？',
-    ];
-    this.showBossMessage(pick(lines));
-  }
-
-  die(){
-    this.lives--;this.player.alive=false;this.state='DEAD';
-    this.particles.emit(this.player.x,this.player.y,50,{angle:0,spread:TWO_PI,speedMin:60,speedMax:250,lifeMin:0.3,lifeMax:1.0,hue:200,hueVar:40,sizeMin:1,sizeMax:5,type:'spark'});
-    this.screenFlash=0.5;
-    SFX.die();
-    if(this.lives<=0){
-      document.getElementById('go-title').textContent='挑战失败';
-      document.getElementById('go-msg').textContent=`你存活了 ${Math.floor(this.survivalTime)} 秒，与 Luna 交谈了 ${this.totalConversations} 次。`;
-    }else{
-      document.getElementById('go-title').textContent='被击中了';
-      document.getElementById('go-msg').textContent=`剩余生命：${'✦'.repeat(this.lives)}`;
-    }
-    document.getElementById('gameover-screen').classList.remove('hidden');
-  }
-
-  // ── 对话 ──
-  startDialogue(){
-    this.state='DIALOGUE';
-    const overlay=document.getElementById('dialogue-overlay');
-    const log=document.getElementById('dialogue-log');
-    const input=document.getElementById('dialogue-input');
-    overlay.classList.add('active');log.innerHTML='';
-    document.getElementById('boss-mood').textContent=`态度：${this.boss.moodName}`;
-    document.getElementById('boss-mood').style.color=hsl(this.boss.moodHue,70,65);
-    input.value='';input.focus();
-    SFX.dialogueOpen();
-    const greetings=[
-      '又到休息时间了。怎么样，有什么想聊的？',
-      '（Luna 暂停了弹幕）说吧，趁这个间隙。你平时都跟人这样聊天吗？',
-      '好了，暂停一下。你看起来有话要说。',
-      '弹幕先停一会儿。你刚才在躲的时候是不是想说什么？',
-    ];
-    this.addDialogueMessage('boss',pick(greetings));
-  }
-
-  addDialogueMessage(type,text){
-    this.dialogueMessages.push({type,text});
-    const log=document.getElementById('dialogue-log');
-    const div=document.createElement('div');
-    div.className=`msg ${type}`;div.textContent=text;
-    log.appendChild(div);log.scrollTop=log.scrollHeight;
-  }
-
-  async sendDialogue(){
-    const input=document.getElementById('dialogue-input');
-    const sendBtn=document.getElementById('dialogue-send');
-    const text=input.value.trim();
-    if(!text)return;
-
-    this.addDialogueMessage('player',text);
-    input.value='';sendBtn.disabled=true;
-    SFX.dialogueSend();
-
-    const analysis=this.dialogueAI.analyze(text);
-    const result=await this.dialogueAI.getResponse(text,analysis,this.boss.mood);
-    const moodChange=result.moodChange;
-
-    const oldMood=this.boss.mood;
-    this.boss.mood=Math.max(0,Math.min(5,Math.round(this.boss.mood+moodChange)));
-    if(moodChange>0)SFX.moodUp();else if(moodChange<0)SFX.moodDown();
-
-    document.getElementById('boss-mood').textContent=`态度：${this.boss.moodName}`;
-    document.getElementById('boss-mood').style.color=hsl(this.boss.moodHue,70,65);
-
-    this.boss.applyDialogueBehavior(result.action || 'wave');
-
-    setTimeout(()=>{
-      const prefix=result.isAI?'[AI] ':'';
-      this.addDialogueMessage('boss',prefix+result.text);
-      const effects=this.dialogueAI.getGameplayEffect(moodChange,this.boss.mood,result.action);
-      for(const eff of effects)this.addDialogueMessage('system',eff.text);
-      this.activeEffects=effects;
-      sendBtn.disabled=false;
-      setTimeout(()=>this.endDialogue(),2200);
-    },result.isAI?200:400+Math.random()*300);
-
-    this.totalConversations++;
-  }
-
-  endDialogue(){
-    document.getElementById('dialogue-overlay').classList.remove('active');
-    this.state='PLAYING';this.dialogueCooldown=CFG.dialogueInterval;
-    this.dialogueMessages=[];this.lastTime=performance.now();
-  }
-
-  showBossMessage(text){
-    this.addDialogueMessage('boss',text);
-    setTimeout(()=>{
-      const log=document.getElementById('dialogue-log');
-      const last=log.lastChild;
-      if(last&&this.state==='PLAYING'){
-        last.style.opacity='0';last.style.transition='opacity 0.5s';
-        setTimeout(()=>{if(last.parentNode)last.remove();},500);
-      }
-    },2500);
-  }
-
-  updateHUD(){
-    document.getElementById('hud-lives').textContent='✦'.repeat(Math.max(0,this.lives));
-    document.getElementById('hud-mood').innerHTML=`态度 <span style="color:${hsl(this.boss.moodHue,70,65)}">${this.boss.moodName}</span>`;
-    document.getElementById('hud-time').textContent=`${Math.floor(this.survivalTime)}s`;
-  }
-
-  checkCollisions(){
-    for(const b of this.bullets.bullets){
-      if(b.alive&&this.player.hit(b)){
-        b.alive=false;this.player.alive=false;
-        this.screenShake=Math.max(this.screenShake,8);this.screenFlash=0.4;
-        this.particles.emit(this.player.x,this.player.y,20,{angle:0,spread:TWO_PI,speedMin:30,speedMax:120,lifeMin:0.1,lifeMax:0.4,hue:0,hueVar:20,sizeMin:2,sizeMax:5,type:'spark'});
-        SFX.hit();this.die();return;
-      }
-    }
-  }
-
-  loop(timestamp){
-    if(!this.running){requestAnimationFrame(t=>this.loop(t));return;}
-    let dt=(timestamp-this.lastTime)/1000;
-    if(dt<=0)dt=0.016;if(dt>0.1)dt=0.1;
-    this.lastTime=timestamp;
-
-    if(this.state==='PLAYING'){
-      this.survivalTime+=dt;this.dialogueCooldown-=dt;
-      if(this.dialogueCooldown<=0&&this.player.alive){this.startDialogue();requestAnimationFrame(t=>this.loop(t));return;}
-      this.player.update(dt,this.input,this.particles,this.groundY);
-      this.boss.update(dt,this.bullets,this.particles);
-      this.bullets.update(dt);this.particles.update(dt);
-      this.checkCollisions();
-      this.screenShake*=Math.pow(0.05,dt);if(this.screenShake<0.1)this.screenShake=0;
-      this.screenFlash*=Math.pow(0.02,dt);if(this.screenFlash<0.01)this.screenFlash=0;
-      if(Math.floor(this.survivalTime)!==Math.floor(this.survivalTime-dt))this.updateHUD();
-    }
-
-    this.render();
-    requestAnimationFrame(t=>this.loop(t));
-  }
-
-  render(){
-    ctx.clearRect(0,0,W,H);
-    let sx=0,sy=0;
-    if(this.screenShake>0.05){sx=(Math.random()-0.5)*this.screenShake*2;sy=(Math.random()-0.5)*this.screenShake*2;}
-    ctx.save();ctx.translate(sx,sy);
-    this.background.draw(ctx);
-    this.boss.drawPatternOverlay(ctx);
-    this.bullets.draw(ctx);
-    this.boss.draw(ctx);
-    if(this.player.alive||this.state==='DEAD')this.player.draw(ctx);
-    this.particles.draw(ctx);
-    ctx.restore();
-    if(this.screenFlash>0.01){ctx.fillStyle=`rgba(255,255,255,${this.screenFlash})`;ctx.fillRect(0,0,W,H);}
-    if(this.activeEffects.length>0&&this.state==='PLAYING'){
-      for(let i=0;i<this.activeEffects.length;i++){
-        ctx.fillStyle=hsl(this.activeEffects[i].hue,70,75,0.85);
-        ctx.font='13px sans-serif';ctx.textAlign='center';
-        ctx.fillText(this.activeEffects[i].text,W/2,H*0.12+i*20);
-      }
-      if(!this._effTimer){this._effTimer=setTimeout(()=>{this.activeEffects=[];this._effTimer=null;},3000);}
-    }
-  }
+  constructor(){ window.game=this; this.background=new Background(); this.player=new Player(); this.boss=new Boss(this); this.bullets=new BulletManager(this); this.particles=new ParticlePool(this); this.pickups=new PickupManager(this); this.dialogueAI=new DialogueAI(this); this.state='TITLE'; this.lives=CFG.maxLives; this.survivalTime=0; this.dialogueCooldown=0; this.totalConversations=0; this.input={left:false,right:false,up:false,down:false,focus:false}; this.activeEffects=[]; this.systemLines=[]; this.screenShake=0; this.screenFlash=0; this.performanceScale=1; this.frameSamples=[]; this.fps=60; this.storyState={stage:0,flags:{},hint:'问问 Luna 为什么守在星门前。',recentTopics:[]}; this.dialogueTurn=0; this.maxDialogueTurns=1; this.pendingDialogueResult=null; this.setupInput(); this.lastTime=performance.now(); this.running=false; }
+  onResize(){ this.background.generate(); }
+  setupInput(){ window.addEventListener('keydown',e=>{ if(this.state==='DIALOGUE'){ if(e.key==='Enter'){e.preventDefault();this.sendDialogue();} if(e.key==='Escape'){e.preventDefault();this.forceEndDialogue();} return; } if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')this.input.left=true; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')this.input.right=true; if(e.key==='ArrowUp'||e.key==='w'||e.key==='W')this.input.up=true; if(e.key==='ArrowDown'||e.key==='s'||e.key==='S')this.input.down=true; if(e.key==='Shift')this.input.focus=true; if(e.key==='Enter'&&this.state==='TITLE')this.start(); }); window.addEventListener('keyup',e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')this.input.left=false; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')this.input.right=false; if(e.key==='ArrowUp'||e.key==='w'||e.key==='W')this.input.up=false; if(e.key==='ArrowDown'||e.key==='s'||e.key==='S')this.input.down=false; if(e.key==='Shift')this.input.focus=false; }); }
+  toggleAIConfig(){ const panel=document.getElementById('ai-config'); if(panel.classList.contains('show')){ AI.mode=document.getElementById('ai-mode').value; AI.url=document.getElementById('ai-url').value; AI.key=document.getElementById('ai-key').value; AI.model=document.getElementById('ai-model').value; AI.musicEnabled=document.getElementById('music-enabled').value==='true'; AI.musicVolume=Number(document.getElementById('music-volume').value); SFX.setVolume(); panel.classList.remove('show'); } else { document.getElementById('ai-mode').value=AI.mode; document.getElementById('ai-url').value=AI.url; document.getElementById('ai-key').value=AI.key; document.getElementById('ai-model').value=AI.model; document.getElementById('music-enabled').value=String(AI.musicEnabled); document.getElementById('music-volume').value=String(AI.musicVolume); panel.classList.add('show'); } }
+  start(){ SFX.init(); SFX.startMusic(); document.getElementById('title-screen').classList.add('hidden'); document.getElementById('gameover-screen').classList.add('hidden'); this.resetGame(); this.state='PLAYING'; this.running=true; this.lastTime=performance.now(); this.updateHUD(); if(!this._loopStarted){ this._loopStarted=true; requestAnimationFrame(t=>this.loop(t)); } }
+  resetGame(){ this.player.reset(); this.boss.reset(); this.bullets.clear(); this.pickups.items.length=0; this.particles=new ParticlePool(this); this.lives=CFG.maxLives; this.survivalTime=0; this.totalConversations=0; this.dialogueCooldown=10; this.activeEffects=[]; this.systemLines=[]; this.storyState={stage:0,flags:{},hint:'问问 Luna 为什么守在星门前，或者告诉她你需要喘息。',recentTopics:[]}; }
+  respawn(){ if(this.lives<=0){this.start();return;} document.getElementById('gameover-screen').classList.add('hidden'); this.player.reset(); this.player.invulnTimer=CFG.invulnDuration; this.bullets.clear(); this.dialogueCooldown=Math.min(this.dialogueCooldown,8); this.state='PLAYING'; }
+  getAIContext(){ return {mood:this.boss.mood,moodName:this.boss.moodName,survivalTime:Math.floor(this.survivalTime),lives:this.lives,shield:this.player.shieldCharges,totalConversations:this.totalConversations,storyStage:this.storyState.stage,lastAction:this.pendingDialogueResult?.action||'',recentTopics:this.storyState.recentTopics.slice(-6)}; }
+  dialogueIntervalForMood(){ return [54,48,38,31,25,21][this.boss.mood]||38; }
+  maxTurnsForMood(){ return [1,1,2,2,3,4][this.boss.mood]||1; }
+  startDialogue(){ this.state='DIALOGUE'; this.dialogueTurn=0; this.maxDialogueTurns=this.maxTurnsForMood(); this.pendingDialogueResult=null; SFX.dialogueOpen(); const overlay=document.getElementById('dialogue-overlay'),log=document.getElementById('dialogue-log'),input=document.getElementById('dialogue-input'); overlay.classList.add('active'); log.innerHTML=''; input.value=''; input.focus(); document.getElementById('boss-mood').textContent=`态度：${this.boss.moodName}`; document.getElementById('boss-mood').style.color=hsl(this.boss.moodHue,70,65); this.updateDialogueHint(); this.setSuggestions(this.dialogueAI.suggestedReplies()); const greetings=['先暂停一下。你刚才躲得不错，想问什么？','我给你一点说话的时间。别浪费，星门不会一直等。','你看起来有话想说。问吧，关于我，或者关于这道门。']; this.addDialogueMessage('boss',pick(greetings)); }
+  updateDialogueHint(text){ const hint=text||this.storyState.hint||(['她现在不太想听挑衅。道歉或尊重会更有用。','她仍在观察你。可以问星门、职责或她为什么在这里。','她对你有点兴趣了。试着问她是否孤独，或她自己的选择。','她愿意多聊一点。继续追问星门背后的真相。','她已经开始信任你。也许可以问她真正想守护什么。'][Math.min(4,Math.max(0,this.boss.mood-1))]); document.getElementById('dialogue-hint').textContent='聊天方向：'+hint; }
+  setSuggestions(items){ const box=document.getElementById('suggestions'); box.innerHTML=''; for(const text of (items||[]).slice(0,3)){ const b=document.createElement('button'); b.className='suggestion'; b.textContent=text; b.onclick=()=>{document.getElementById('dialogue-input').value=text; document.getElementById('dialogue-input').focus();}; box.appendChild(b); } }
+  addDialogueMessage(type,text){ const log=document.getElementById('dialogue-log'),div=document.createElement('div'); div.className=`msg ${type}`; div.textContent=text; log.appendChild(div); log.scrollTop=log.scrollHeight; }
+  async sendDialogue(){ const input=document.getElementById('dialogue-input'),send=document.getElementById('dialogue-send'); const text=input.value.trim(); if(!text||send.disabled)return; this.addDialogueMessage('player',text); input.value=''; send.disabled=true; SFX.dialogueSend(); const analysis=this.dialogueAI.analyze(text); const result=await this.dialogueAI.getResponse(text,analysis); this.applyDialogueResult(result,analysis); setTimeout(()=>{ this.addDialogueMessage('boss',(result.isAI?'[AI] ':'')+result.text); if(result.story?.hint)this.addDialogueMessage('system',result.story.hint); const continueChat=this.shouldContinueDialogue(result); if(continueChat){ this.dialogueTurn++; send.disabled=false; this.setSuggestions(result.chat?.suggestedReplies||this.dialogueAI.suggestedReplies()); this.updateDialogueHint(result.story?.hint); } else { send.disabled=false; setTimeout(()=>this.endDialogue(),1800); } }, result.isAI?120:330); this.totalConversations++; }
+  applyDialogueResult(result,analysis){ const old=this.boss.mood; this.boss.mood=clamp(Math.round(this.boss.mood+(result.moodDelta||0)),0,5); SFX.setMood(this.boss.mood); if(this.boss.mood>old)SFX.moodUp(); else if(this.boss.mood<old)SFX.moodDown(); if(result.story?.stageDelta){ this.storyState.stage=clamp(this.storyState.stage+result.story.stageDelta,0,5); if(result.story.flag)this.storyState.flags[result.story.flag]=true; if(result.story.hint)this.storyState.hint=result.story.hint; } if(analysis?.topics)this.storyState.recentTopics.push(...analysis.topics); this.pendingDialogueResult=result; if(result.gameplay?.reward==='shield' || (this.boss.mood>=4&&result.moodDelta>0&&Math.random()<.25)) this.boss.giveShield('Luna 轻轻一抬手，一枚护盾星向你飘来。'); if(result.gameplay?.clearBullets)this.bullets.clear(); document.getElementById('boss-mood').textContent=`态度：${this.boss.moodName}`; document.getElementById('boss-mood').style.color=hsl(this.boss.moodHue,70,65); this.activeEffects=[{text:`Luna 的态度：${this.boss.moodName}`,hue:this.boss.moodHue},{text:`下一轮：${this.boss.behaviorLabel(result.action||'wave').replace('回应：','')}`,hue:220}]; }
+  shouldContinueDialogue(result){ if(this.dialogueTurn>=this.maxDialogueTurns-1)return false; if(this.boss.mood<=1)return false; if(result.chat?.continue)return true; return this.boss.mood>=4&&Math.random()<.45; }
+  forceEndDialogue(){ this.endDialogue(); }
+  endDialogue(){ const result=this.pendingDialogueResult||{action:'wave',gameplay:{}}; this.boss.applyDialogueBehavior(result.action||'wave',result.gameplay||{}); document.getElementById('dialogue-overlay').classList.remove('active'); this.state='PLAYING'; this.dialogueCooldown=this.dialogueIntervalForMood(); this.lastTime=performance.now(); SFX.dialogueClose(); }
+  showSystemLine(text){ this.systemLines.push({text,life:3,hue:190}); }
+  die(){ this.lives--; this.player.alive=false; this.state='DEAD'; this.particles.emit(this.player.x,this.player.y,44,{angle:0,spread:TWO_PI,speedMin:60,speedMax:240,lifeMin:.25,lifeMax:.95,hue:200,hueVar:45,sizeMin:1,sizeMax:5,type:'spark'}); SFX.die(); if(this.lives<=0){ document.getElementById('go-title').textContent='挑战失败'; document.getElementById('go-msg').textContent=`你存活了 ${Math.floor(this.survivalTime)} 秒，与 Luna 交谈了 ${this.totalConversations} 次。`; } else { document.getElementById('go-title').textContent='护光熄灭'; document.getElementById('go-msg').textContent=`剩余生命：${this.lives}`; } document.getElementById('gameover-screen').classList.remove('hidden'); }
+  checkCollisions(){ for(const b of this.bullets.bullets){ if(this.player.hit(b)){ b.alive=false; if(this.player.consumeShield(this)){ this.showSystemLine('护盾挡下了一次攻击。'); return; } SFX.hit(); this.die(); return; } } }
+  updatePerformance(dt){ this.frameSamples.push(dt); if(this.frameSamples.length>50)this.frameSamples.shift(); const avg=this.frameSamples.reduce((a,b)=>a+b,0)/this.frameSamples.length; this.fps=Math.round(1/avg); if(this.fps<CFG.lowFpsThreshold)this.performanceScale=clamp(this.performanceScale-.018,.55,1); else if(this.fps>55)this.performanceScale=clamp(this.performanceScale+.006,.55,1); }
+  updateHUD(){ document.getElementById('hud-lives').textContent=String(this.lives); document.getElementById('hud-shield').textContent=String(this.player.shieldCharges); document.getElementById('hud-mood').innerHTML=`态度 <span style="color:${hsl(this.boss.moodHue,70,65)}">${this.boss.moodName}</span>`; document.getElementById('hud-story').textContent=['序章','职责','孤独','选择','真相','信任'][this.storyState.stage]||'序章'; document.getElementById('hud-time').textContent=`${Math.floor(this.survivalTime)}s`; document.getElementById('hud-bullets').textContent=String(this.bullets.bullets.length); document.getElementById('hud-fps').textContent=String(this.fps); }
+  loop(t){ if(!this.running){ requestAnimationFrame(x=>this.loop(x)); return; } let dt=(t-this.lastTime)/1000; if(dt<=0)dt=.016; if(dt>.08)dt=.08; this.lastTime=t; this.updatePerformance(dt); if(this.state==='PLAYING'){ this.survivalTime+=dt; this.dialogueCooldown-=dt; if(this.dialogueCooldown<=0&&this.player.alive){ this.startDialogue(); requestAnimationFrame(x=>this.loop(x)); return; } this.player.update(dt,this.input,this.particles,this); this.boss.update(dt,this.bullets,this.particles); this.bullets.update(dt); this.pickups.update(dt); this.particles.update(dt); for(const l of this.systemLines)l.life-=dt; this.systemLines=this.systemLines.filter(l=>l.life>0); this.checkCollisions(); if(Math.floor(this.survivalTime)!==Math.floor(this.survivalTime-dt))this.updateHUD(); } this.render(); requestAnimationFrame(x=>this.loop(x)); }
+  render(){ ctx.clearRect(0,0,W,H); this.background.draw(ctx,this.performanceScale); this.boss.drawPatternOverlay(ctx); this.bullets.draw(ctx); this.pickups.draw(ctx); this.boss.draw(ctx); this.player.draw(ctx); this.particles.draw(ctx); if(this.activeEffects.length&&this.state==='PLAYING'){ for(let i=0;i<this.activeEffects.length;i++){ctx.fillStyle=hsl(this.activeEffects[i].hue,70,75,.85);ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText(this.activeEffects[i].text,W/2,H*.12+i*20);} if(!this._effTimer)this._effTimer=setTimeout(()=>{this.activeEffects=[];this._effTimer=null;},2600); } for(let i=0;i<this.systemLines.length;i++){ const l=this.systemLines[i]; ctx.fillStyle=hsl(l.hue,70,75,Math.min(1,l.life)); ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.fillText(l.text,W/2,H*.18+i*20); } }
 }
 
-// ═══════════════════════════════════════════
-//  启动
-// ═══════════════════════════════════════════
-const game = new Game();
-
-function preRender(){
-  if(game.running)return;
-  game.background.draw(ctx);
-  ctx.save();ctx.globalCompositeOperation='lighter';
-  const now=performance.now()*0.001;
-  for(let i=0;i<30;i++){
-    const x=(Math.sin(now*0.3+i*1.7)*0.5+0.5)*W,y=(Math.cos(now*0.4+i*2.1)*0.5+0.5)*H;
-    ctx.fillStyle=hsl(260+i*2,60,80,(0.5+0.5*Math.sin(now*2+i))*0.7);
-    ctx.beginPath();ctx.arc(x,y,rand(1,3),0,TWO_PI);ctx.fill();
-  }
-  ctx.restore();
-  requestAnimationFrame(()=>preRender());
-}
+var game = new Game();
+window.game = game;
+function preRender(){ if(game.running)return; game.background.draw(ctx,1); requestAnimationFrame(preRender); }
 preRender();
 </script>
 </body>
