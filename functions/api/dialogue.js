@@ -2,6 +2,9 @@ const DEFAULT_BASE_URL = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_MODEL = 'gpt-4o-mini';
 const DEFAULT_TEMPERATURE = 0.45;
 const DEFAULT_MAX_TOKENS = 420;
+const DEFAULT_PROVIDER_COOLDOWN_MS = 5 * 60 * 1000;
+const providerCooldowns = new Map();
+const jsonModeUnsupportedProviders = new Set();
 
 const ALLOWED_ACTIONS = new Set([
   'mercy', 'clear', 'petal', 'wave', 'chase', 'laser', 'gravity',
@@ -173,18 +176,72 @@ function getTimeoutMs(env) {
   return clamp(Number.parseInt(env.AI_TIMEOUT_MS || '12000', 10) || 12000, 3000, 30000);
 }
 
+function getProviderCooldownMs(env) {
+  return clamp(Number.parseInt(env.AI_PROVIDER_COOLDOWN_MS || String(DEFAULT_PROVIDER_COOLDOWN_MS), 10) || DEFAULT_PROVIDER_COOLDOWN_MS, 0, 30 * 60 * 1000);
+}
+
+function envFlag(value) {
+  return /^(1|true|yes|on)$/i.test(String(value || '').trim());
+}
+
+function providerJsonMode(env, index) {
+  return !envFlag(env[index ? `AI_DISABLE_JSON_MODE_${index}` : 'AI_DISABLE_JSON_MODE']);
+}
+
+function hashSecret(value) {
+  let hash = 2166136261;
+  for (const ch of String(value || '')) {
+    hash ^= ch.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function providerKey(provider) {
+  return `${provider.baseUrl}\n${provider.model}\n${hashSecret(provider.apiKey)}`;
+}
+
+function providerCooldownUntil(provider) {
+  const until = providerCooldowns.get(providerKey(provider)) || 0;
+  if (until <= Date.now()) {
+    providerCooldowns.delete(providerKey(provider));
+    return 0;
+  }
+  return until;
+}
+
+function orderProvidersByHealth(providers) {
+  return [...providers].sort((a, b) => providerCooldownUntil(a) - providerCooldownUntil(b));
+}
+
+function markProviderSuccess(provider) {
+  providerCooldowns.delete(providerKey(provider));
+}
+
+function markProviderFailure(provider, cooldownMs) {
+  if (cooldownMs > 0) providerCooldowns.set(providerKey(provider), Date.now() + cooldownMs);
+}
+
+function providerSupportsJsonMode(provider) {
+  return provider.jsonMode !== false && !jsonModeUnsupportedProviders.has(providerKey(provider));
+}
+
+function markJsonModeUnsupported(provider) {
+  jsonModeUnsupportedProviders.add(providerKey(provider));
+}
+
 function buildProviders(env, custom) {
   if (custom?.baseUrl && custom?.apiKey && custom?.model) {
-    return [{ label: 'custom', baseUrl: custom.baseUrl, model: custom.model, apiKey: custom.apiKey }];
+    return [{ label: 'custom', baseUrl: custom.baseUrl, model: custom.model, apiKey: custom.apiKey, jsonMode: true }];
   }
   const providers = [];
   const mainBaseUrl = env.AI_BASE_URL || DEFAULT_BASE_URL;
   const mainModel = env.AI_MODEL || DEFAULT_MODEL;
-  if (env.AI_API_KEY) providers.push({ label: 'default', baseUrl: mainBaseUrl, model: mainModel, apiKey: env.AI_API_KEY });
+  if (env.AI_API_KEY) providers.push({ label: 'default', baseUrl: mainBaseUrl, model: mainModel, apiKey: env.AI_API_KEY, jsonMode: providerJsonMode(env, 0) });
   for (let i = 2; i <= 10; i++) {
     const apiKey = env[`AI_API_KEY_${i}`];
     if (!apiKey) continue;
-    providers.push({ label: `fallback_${i}`, baseUrl: env[`AI_BASE_URL_${i}`] || mainBaseUrl, model: env[`AI_MODEL_${i}`] || mainModel, apiKey });
+    providers.push({ label: `fallback_${i}`, baseUrl: env[`AI_BASE_URL_${i}`] || mainBaseUrl, model: env[`AI_MODEL_${i}`] || mainModel, apiKey, jsonMode: providerJsonMode(env, i) });
   }
   const seen = new Set();
   return providers.filter((p) => {
@@ -195,10 +252,18 @@ function buildProviders(env, custom) {
   });
 }
 
-function providerConfigSummary(providers, timeoutMs) {
+function providerConfigSummary(providers, timeoutMs, providerCooldownMs = DEFAULT_PROVIDER_COOLDOWN_MS) {
   return {
     timeoutMs,
-    providers: providers.map((p) => ({ provider: p.label, model: p.model, baseUrlHost: safeUrlHost(p.baseUrl), hasKey: Boolean(p.apiKey) })),
+    providerCooldownMs,
+    providers: providers.map((p) => ({
+      provider: p.label,
+      model: p.model,
+      baseUrlHost: safeUrlHost(p.baseUrl),
+      hasKey: Boolean(p.apiKey),
+      jsonMode: providerSupportsJsonMode(p),
+      cooldownRemainingMs: Math.max(0, providerCooldownUntil(p) - Date.now()),
+    })),
   };
 }
 
@@ -219,8 +284,6 @@ function responseFormatUnsupported(status, text) {
 async function callProvider(provider, messages, options = {}) {
   const started = Date.now();
   const timeoutMs = options.timeoutMs || 12000;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
   const attemptBase = { provider: provider.label, model: provider.model, baseUrlHost: safeUrlHost(provider.baseUrl) };
   const bodyBase = {
     model: provider.model,
@@ -229,21 +292,28 @@ async function callProvider(provider, messages, options = {}) {
     max_tokens: clamp(options.maxTokens ?? DEFAULT_MAX_TOKENS, 40, 600),
   };
   const request = async (useJsonMode) => {
-    const body = useJsonMode ? { ...bodyBase, response_format: { type: 'json_object' } } : bodyBase;
-    const upstream = await fetch(provider.baseUrl, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${provider.apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
-    return { upstream, rawText: await upstream.text(), useJsonMode };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const body = useJsonMode ? { ...bodyBase, response_format: { type: 'json_object' } } : bodyBase;
+      const upstream = await fetch(provider.baseUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${provider.apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+      return { upstream, rawText: await upstream.text(), useJsonMode };
+    } finally {
+      clearTimeout(timer);
+    }
   };
   try {
-    let response = await request(true);
-    if (!response.upstream.ok && responseFormatUnsupported(response.upstream.status, response.rawText)) {
+    let response = await request(providerSupportsJsonMode(provider));
+    if (response.useJsonMode && !response.upstream.ok && responseFormatUnsupported(response.upstream.status, response.rawText)) {
+      markJsonModeUnsupported(provider);
       response = await request(false);
     }
     const durationMs = Date.now() - started;
@@ -267,17 +337,20 @@ async function callProvider(provider, messages, options = {}) {
     return { ok: true, parsed, attempt: { ...attemptBase, ok: true, status: upstream.status, formatMode, durationMs } };
   } catch (error) {
     return { ok: false, attempt: { ...attemptBase, ok: false, error: compactError(error), durationMs: Date.now() - started } };
-  } finally {
-    clearTimeout(timer);
   }
 }
 
 async function tryProviders(providers, messages, options = {}) {
   const attempts = [];
-  for (const provider of providers) {
+  const cooldownMs = options.providerCooldownMs ?? DEFAULT_PROVIDER_COOLDOWN_MS;
+  for (const provider of orderProvidersByHealth(providers)) {
     const result = await callProvider(provider, messages, options);
     attempts.push(result.attempt);
-    if (result.ok) return { ok: true, parsed: result.parsed, provider, attempts };
+    if (result.ok) {
+      markProviderSuccess(provider);
+      return { ok: true, parsed: result.parsed, provider, attempts };
+    }
+    markProviderFailure(provider, cooldownMs);
   }
   return { ok: false, attempts };
 }
@@ -400,11 +473,12 @@ async function handlePost(context) {
 
     const providers = buildProviders(context.env, custom);
     const timeoutMs = getTimeoutMs(context.env);
+    const providerCooldownMs = getProviderCooldownMs(context.env);
     if (!providers.length) {
       return json({ ok: false, error: 'AI_API_KEY is not configured', fallback: true, meta: { attempts: [] } }, 503);
     }
 
-    const result = await tryProviders(providers, messages, { timeoutMs, temperature: DEFAULT_TEMPERATURE, maxTokens: DEFAULT_MAX_TOKENS });
+    const result = await tryProviders(providers, messages, { timeoutMs, providerCooldownMs, temperature: DEFAULT_TEMPERATURE, maxTokens: DEFAULT_MAX_TOKENS });
     if (!result.ok) {
       return json({ ok: false, error: 'All upstream AI providers failed', fallback: true, meta: { attempts: result.attempts } }, 502);
     }
@@ -422,7 +496,8 @@ async function handleTest(context) {
   const language = url.searchParams.get('language') === 'en' ? 'en' : 'zh-CN';
   const providers = buildProviders(context.env, null);
   const timeoutMs = getTimeoutMs(context.env);
-  const configured = providerConfigSummary(providers, timeoutMs);
+  const providerCooldownMs = getProviderCooldownMs(context.env);
+  const configured = providerConfigSummary(providers, timeoutMs, providerCooldownMs);
   if (!providers.length) {
     return json({ ok: false, configured, usable: false, error: 'AI_API_KEY is missing', attempts: [] });
   }
@@ -431,7 +506,7 @@ async function handleTest(context) {
     { role: 'system', content: buildSystemPrompt({ moodName: language === 'en' ? 'Neutral' : '中立', mood: 2, lives: 3, shield: 0, survivalTime: 0, storyStage: 0, gateReady: false, recentTopics: [] }, language) },
     { role: 'user', content: language === 'en' ? 'Connection test: reply in one English sentence and return complete JSON.' : '测试连接：用一句中文回应，并返回完整 JSON。' },
   ];
-  const result = await tryProviders(providers, messages, { timeoutMs, temperature: 0, maxTokens: DEFAULT_MAX_TOKENS });
+  const result = await tryProviders(providers, messages, { timeoutMs, providerCooldownMs, temperature: 0, maxTokens: DEFAULT_MAX_TOKENS });
   if (!result.ok) {
     return json({ ok: false, configured, usable: false, error: 'All upstream AI providers failed', attempts: result.attempts }, 502);
   }

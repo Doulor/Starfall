@@ -155,6 +155,8 @@ AI_API_KEY       # 必填：主 API Key
 AI_BASE_URL      # 可选：默认 https://api.openai.com/v1/chat/completions
 AI_MODEL         # 可选：默认 gpt-4o-mini
 AI_TIMEOUT_MS    # 可选：默认 12000，范围 3000-30000，单位毫秒
+AI_PROVIDER_COOLDOWN_MS # 可选：某个 provider 失败后的冷却时间，默认 300000，范围 0-1800000
+AI_DISABLE_JSON_MODE # 可选：设为 true/1 时主 API 不发送 response_format
 ```
 
 ### 备用 API
@@ -165,6 +167,7 @@ AI_TIMEOUT_MS    # 可选：默认 12000，范围 3000-30000，单位毫秒
 AI_API_KEY_2
 AI_BASE_URL_2    # 可选，不填则继承 AI_BASE_URL
 AI_MODEL_2       # 可选，不填则继承 AI_MODEL
+AI_DISABLE_JSON_MODE_2 # 可选：设为 true/1 时 2 号 API 不发送 response_format
 
 AI_API_KEY_3
 AI_BASE_URL_3
@@ -566,6 +569,7 @@ AI_TIMEOUT_MS
 AI_API_KEY_2
 AI_BASE_URL_2
 AI_MODEL_2
+AI_DISABLE_JSON_MODE_2
 ```
 
 Supabase 排行榜配置：
@@ -582,10 +586,13 @@ AI_API_KEY
 AI_BASE_URL
 AI_MODEL
 AI_TIMEOUT_MS
+AI_PROVIDER_COOLDOWN_MS
+AI_DISABLE_JSON_MODE
 
 AI_API_KEY_2
 AI_BASE_URL_2
 AI_MODEL_2
+AI_DISABLE_JSON_MODE_2
 ...
 AI_API_KEY_10
 AI_BASE_URL_10
