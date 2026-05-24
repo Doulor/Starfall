@@ -614,16 +614,30 @@ class SoundEngine {
 }
 const SFX = new SoundEngine();
 
-class Particle { constructor(x,y,vx,vy,life,hue,size=2,type='dot'){ this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.life=life;this.maxLife=life;this.hue=hue;this.size=size;this.type=type; this.spin=rand(0,TWO_PI); } update(dt){ this.x+=this.vx*dt; this.y+=this.vy*dt; if(this.type==='star'){ this.vx*=Math.pow(.985,dt*60); this.vy*=Math.pow(.985,dt*60); } this.life-=dt; } }
+const particleSpriteCache = new Map();
+function getParticleSprite(type,hue,size){
+  const spriteType=type==='star'?'star':'dot',bucketHue=((Math.round(hue/12)*12)%360+360)%360,bucketSize=clamp(Math.round(size),1,8),key=`${spriteType}:${bucketHue}:${bucketSize}`;
+  let sprite=particleSpriteCache.get(key); if(sprite)return sprite;
+  const core=spriteType==='star'?bucketSize*1.35:bucketSize*1.15,glow=spriteType==='star'?bucketSize*5:bucketSize*2.6,dim=Math.ceil((core+glow+2)*2),c=document.createElement('canvas'),g=c.getContext('2d'),cx=dim/2,cy=dim/2;
+  c.width=c.height=dim; g.globalCompositeOperation='lighter';
+  const grad=g.createRadialGradient(cx,cy,0,cx,cy,core+glow);
+  grad.addColorStop(0,hsl(bucketHue,90,82,.95)); grad.addColorStop(spriteType==='star'?.22:.28,hsl(bucketHue,86,68,.48)); grad.addColorStop(1,hsl(bucketHue,82,60,0));
+  g.fillStyle=grad; g.beginPath(); g.arc(cx,cy,core+glow,0,TWO_PI); g.fill();
+  g.fillStyle=hsl(bucketHue,90,76,.9); g.beginPath();
+  if(spriteType==='star'){ for(let i=0;i<10;i++){ const rr=i%2?core*.42:core,ang=-Math.PI/2+i*TWO_PI/10; if(i===0)g.moveTo(cx+Math.cos(ang)*rr,cy+Math.sin(ang)*rr); else g.lineTo(cx+Math.cos(ang)*rr,cy+Math.sin(ang)*rr); } g.closePath(); }
+  else g.arc(cx,cy,core,0,TWO_PI);
+  g.fill(); sprite={canvas:c,size:dim}; if(particleSpriteCache.size>96)particleSpriteCache.clear(); particleSpriteCache.set(key,sprite); return sprite;
+}
+class Particle { reset(x,y,vx,vy,life,hue,size=2,type='dot'){ this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.life=life;this.maxLife=life;this.hue=hue;this.size=size;this.type=type; this.spin=rand(0,TWO_PI); return this; } update(dt){ this.x+=this.vx*dt; this.y+=this.vy*dt; if(this.type==='star'){ this.vx*=Math.pow(.985,dt*60); this.vy*=Math.pow(.985,dt*60); } this.life-=dt; } }
 class ParticlePool {
-  constructor(game){ this.game=game; this.particles=[]; }
+  constructor(game){ this.game=game; this.particles=[]; this.free=[]; }
   emit(x,y,count,cfg){
     const scale=this.game?this.game.performanceScale:1;
     count=Math.min(CFG.maxParticles-this.particles.length, Math.ceil(count*scale)); if(count<=0) return;
-    for(let i=0;i<count;i++){ const a=cfg.angle+rand(-cfg.spread,cfg.spread), s=rand(cfg.speedMin,cfg.speedMax); this.particles.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,rand(cfg.lifeMin,cfg.lifeMax),cfg.hue+rand(-cfg.hueVar,cfg.hueVar),rand(cfg.sizeMin,cfg.sizeMax),cfg.type||'dot')); }
+    for(let i=0;i<count;i++){ const a=cfg.angle+rand(-cfg.spread,cfg.spread), s=rand(cfg.speedMin,cfg.speedMax), p=this.free.pop()||new Particle(); this.particles.push(p.reset(x,y,Math.cos(a)*s,Math.sin(a)*s,rand(cfg.lifeMin,cfg.lifeMax),cfg.hue+rand(-cfg.hueVar,cfg.hueVar),rand(cfg.sizeMin,cfg.sizeMax),cfg.type||'dot')); }
   }
-  update(dt){ let w=0; for(let i=0;i<this.particles.length;i++){ const p=this.particles[i]; p.update(dt); if(p.life>0) this.particles[w++]=p; } this.particles.length=w; }
-  draw(ctx){ const low=this.game&&this.game.performanceScale<.78; for(const p of this.particles){ const a=Math.max(0,p.life/p.maxLife); ctx.globalAlpha=a; ctx.fillStyle=hsl(p.hue,80,70,a); if(!low){ ctx.shadowColor=hsl(p.hue,80,60); ctx.shadowBlur=p.size*(p.type==='star'?5:2); } else ctx.shadowBlur=0; if(p.type==='star'){ const r=p.size*(.35+a); ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.spin+p.life*3);ctx.beginPath(); for(let i=0;i<10;i++){ const rr=i%2?r:r*.42,ang=-Math.PI/2+i*TWO_PI/10; if(i===0)ctx.moveTo(Math.cos(ang)*rr,Math.sin(ang)*rr); else ctx.lineTo(Math.cos(ang)*rr,Math.sin(ang)*rr); } ctx.closePath();ctx.fill();ctx.restore(); } else { ctx.beginPath(); ctx.arc(p.x,p.y,p.size*a,0,TWO_PI); ctx.fill(); } } ctx.globalAlpha=1; ctx.shadowBlur=0; }
+  update(dt){ let w=0; for(let i=0;i<this.particles.length;i++){ const p=this.particles[i]; p.update(dt); if(p.life>0) this.particles[w++]=p; else if(this.free.length<CFG.maxParticles)this.free.push(p); } this.particles.length=w; }
+  draw(ctx){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.shadowBlur=0; for(const p of this.particles){ const a=Math.max(0,p.life/p.maxLife); if(a<=0)continue; const sprite=getParticleSprite(p.type,p.hue,p.size),scale=p.type==='star'?.35+a:Math.max(.12,a),drawSize=sprite.size*scale; ctx.globalAlpha=p.type==='star'?a:a*a; if(p.type==='star'){ ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.spin+p.life*3);ctx.drawImage(sprite.canvas,-drawSize/2,-drawSize/2,drawSize,drawSize);ctx.restore(); } else ctx.drawImage(sprite.canvas,p.x-drawSize/2,p.y-drawSize/2,drawSize,drawSize); } ctx.restore(); ctx.globalAlpha=1; ctx.shadowBlur=0; }
 }
 
 class Bullet { constructor(x,y,vx,vy,hue,size,type='petal'){ this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.hue=hue;this.size=size;this.type=type;this.age=0;this.trail=[];this.alive=true;this.hasSplit=false; this.fill=hsl(hue,82,68,.9); this.stroke=hsl(hue,88,74,.9); this.glow=hsl(hue,90,70); this.trailColor=hsl(hue,80,65,.36); } update(dt,maxTrails){ this.age+=dt; this.x+=this.vx*dt; this.y+=this.vy*dt; if(maxTrails>0&&this.type!=='beam'){ if(this.trail.length>=maxTrails)this.trail.shift(); const pt=this.trail[this.trail.length]||{}; pt.x=this.x; pt.y=this.y; this.trail.push(pt); } } }
