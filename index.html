@@ -48,6 +48,7 @@
     background: radial-gradient(circle at 50% 28%, rgba(80,62,160,.28), rgba(7,7,19,.86) 52%, rgba(7,7,19,.96));
     backdrop-filter: blur(4px); pointer-events: auto;
   }
+  #gameover-screen:not(.hidden) { animation: overlayFadeIn .28s ease both; }
   #title-screen h1 {
     font-size: clamp(34px, 7vw, 58px); font-weight: 300; letter-spacing: .16em;
     color: #ece7ff; text-shadow: 0 0 36px rgba(167,139,250,.62), 0 0 80px rgba(125,211,252,.24);
@@ -62,8 +63,16 @@
   .story-card strong { color: #e9ddff; font-weight: 600; }
   .story-card .hint { margin-top: 10px; color: rgba(186,230,253,.8); font-size: 12px; }
   .button-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  #title-buttons .btn { visibility: hidden; opacity: 0; transform: translateY(10px); animation: titleButtonIn .65s ease forwards; }
+  #title-buttons .btn:nth-child(1) { animation-delay: .9s; }
+  #title-buttons .btn:nth-child(2) { animation-delay: 1.08s; }
+  #title-buttons .btn:nth-child(3) { animation-delay: 1.26s; }
+  @keyframes titleButtonIn { to { visibility: visible; opacity: 1; transform: translateY(0); } }
+  @keyframes menuRiseIn { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes centeredPanelIn { from { opacity: 0; transform: translate(-50%, calc(-50% + 14px)) scale(.98); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+  @keyframes overlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
   #mode-select, #difficulty-select { display: none; flex-direction: column; gap: 12px; align-items: center; }
-  #mode-select.show, #difficulty-select.show { display: flex; }
+  #mode-select.show, #difficulty-select.show { display: flex; animation: menuRiseIn .32s cubic-bezier(.16,1,.3,1) both; }
 
   #ai-config {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -72,7 +81,7 @@
     border: 1px solid rgba(167,139,250,.32); box-shadow: 0 0 42px rgba(70,60,160,.24);
     backdrop-filter: blur(18px);
   }
-  #ai-config.show { display: flex; }
+  #ai-config.show { display: flex; animation: centeredPanelIn .3s cubic-bezier(.16,1,.3,1) both; }
   #ai-config h3 { font-size: 16px; color: #eadfff; }
   #ai-config label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 11px; }
   #ai-config input, #ai-config select {
@@ -103,7 +112,7 @@
     align-items: flex-end; justify-content: center; padding: 16px;
     pointer-events: none;
   }
-  #dialogue-overlay.active { display: flex; pointer-events: auto; }
+  #dialogue-overlay.active { display: flex; pointer-events: auto; animation: overlayFadeIn .22s ease both; }
   #dialogue-panel {
     width: min(94vw, 660px); max-height: 72dvh;
     display: flex; flex-direction: column; gap: 10px;
@@ -174,7 +183,8 @@
     background: radial-gradient(circle at 50% 26%, rgba(80,62,160,.38), rgba(7,7,19,.94) 58%, rgba(7,7,19,.98));
     backdrop-filter: blur(8px); pointer-events: auto;
   }
-  #mobile-entry-overlay.show { display: flex; }
+  #mobile-entry-overlay.show { display: flex; animation: overlayFadeIn .28s ease both; }
+  #mobile-entry-overlay.show .mobile-entry-card { animation: menuRiseIn .34s cubic-bezier(.16,1,.3,1) both; }
   .mobile-entry-card {
     width: min(92vw, 520px); padding: 24px 22px; border-radius: 22px;
     border: 1px solid rgba(125,211,252,.28); background: rgba(10,11,32,.86);
@@ -203,6 +213,7 @@
   .summary-note { margin-top: 10px; color: rgba(216,222,248,.78); font-size: 12px; line-height: 1.55; }
   .summary-note.good { color: #bbf7d0; }
   .summary-note.warn { color: #fde68a; }
+  #run-summary-card:not(.hidden) { animation: menuRiseIn .34s cubic-bezier(.16,1,.3,1) both; }
   .summary-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
   .summary-name-form { margin-top: 12px; padding: 10px; border-radius: 12px; background: rgba(125,211,252,.07); border: 1px solid rgba(125,211,252,.14); }
   .summary-name-row { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
@@ -243,7 +254,7 @@
     border: 1px solid rgba(167,139,250,.34); box-shadow: 0 0 46px rgba(70,60,160,.28);
     backdrop-filter: blur(18px); display: none; flex-direction: column; gap: 12px; pointer-events: none;
   }
-  #leaderboard-panel.show { display: flex; pointer-events: auto; }
+  #leaderboard-panel.show { display: flex; pointer-events: auto; animation: centeredPanelIn .3s cubic-bezier(.16,1,.3,1) both; }
   #leaderboard-panel h3 { color: #eadfff; font-size: 16px; }
   #leaderboard-tabs .btn.active { background: rgba(125,211,252,.18); border-color: rgba(125,211,252,.42); }
   #leaderboard-list { display: flex; flex-direction: column; gap: 8px; }
