@@ -488,6 +488,7 @@ const CFG = {
   starGateRadius: 58,
   showDebugStats: true,
   moodDifficultyMap: [1.45, 1.22, 1.0, 0.86, 0.72, 0.58],
+  moodBulletDensityMap: [1.85, 1.58, 1.0, 0.88, 0.76, 0.64],
   modes: {
     normal: { labelKey:'normal', difficultyMult:1, bulletDensityMult:1, persuasionMult:1, dialogueEnabled:true, victoryEnabled:true, maxDeaths:null },
     hard: { labelKey:'hard', difficultyMult:1.36, bulletDensityMult:1.7, persuasionMult:.6, dialogueEnabled:true, victoryEnabled:true, maxDeaths:null },
@@ -774,7 +775,7 @@ class Game {
   showFullscreenUnavailable(){ this.showRotatePrompt(t('fullscreenUnavailable')); }
   async enterFullscreen(){ const el=document.documentElement, request=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen; if(!request){ this.showFullscreenUnavailable(); return; } try{ await request.call(el); this.showRotatePrompt(); setTimeout(()=>{ resize(); syncMobileUI(); },120); }catch(_){ this.showFullscreenUnavailable(); } }
   confirmMobileEntry(){ mobileEntryDismissed=true; document.getElementById('mobile-entry-overlay')?.classList.remove('show'); resize(); }
-  getBulletDensity(){ return this.getModeCfg().bulletDensityMult||1; }
+  getBulletDensity(){ return (this.getModeCfg().bulletDensityMult||1) * (CFG.moodBulletDensityMap[this.boss?.mood ?? 2]||1); }
   isRunOver(){ const maxDeaths=this.getModeCfg().maxDeaths; return maxDeaths?this.deaths>=maxDeaths:this.lives<=0; }
   recordRunDeath(){ const maxDeaths=this.getModeCfg().maxDeaths; if(maxDeaths){ this.deaths++; this.lives=Math.max(0,maxDeaths-this.deaths); return this.deaths>=maxDeaths; } this.lives--; return this.lives<=0; }
   formatEndStats(prefixText=''){ const cfg=this.getModeCfg(),parts=[]; if(prefixText)parts.push(prefixText); parts.push(currentLanguage===LANG_EN?`Mode: ${this.modeLabel(this.mode)}`:`模式：${this.modeLabel(this.mode)}`); parts.push(currentLanguage===LANG_EN?`Survival time: ${Math.floor(this.survivalTime)}s`:`存活时间：${Math.floor(this.survivalTime)} 秒`); parts.push(currentLanguage===LANG_EN?`XP: ${this.playerGrowth.xp}, Level: ${this.playerGrowth.level}`:`XP：${this.playerGrowth.xp}，等级：${this.playerGrowth.level}`); parts.push(currentLanguage===LANG_EN?`Dodged bullets: ${this.stats.bulletsDodged}`:`闪避弹幕：${this.stats.bulletsDodged}`); parts.push(currentLanguage===LANG_EN?`Hits taken: ${this.stats.bulletsHit}`:`命中次数：${this.stats.bulletsHit}`); if(cfg.dialogueEnabled)parts.push(currentLanguage===LANG_EN?`Dialogues: ${this.totalConversations}`:`对话次数：${this.totalConversations}`); parts.push(currentLanguage===LANG_EN?`Total bullets: ${this.stats.bulletsSpawned}`:`总弹幕：${this.stats.bulletsSpawned}`); return parts.join('｜'); }
