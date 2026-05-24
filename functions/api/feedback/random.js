@@ -18,6 +18,7 @@ function mapFeedback(item) {
     type: item.type,
     title: item.title || '',
     content: item.content || '',
+    authorReply: item.author_reply || '',
     language: item.language || 'zh-CN',
     deviceName: item.device_name || '',
     isResolved: Boolean(item.is_resolved),
@@ -68,7 +69,7 @@ export async function onRequest(context) {
     if (!countResult.ok) return json({ ok: false, error: countResult.data?.message || countResult.data?.error || 'Feedback unavailable' }, countResult.status || 502);
     if (!count) return json({ ok: true, item: null });
     const itemParams = new URLSearchParams();
-    itemParams.set('select', 'id,type,title,content,language,device_name,is_resolved,created_at');
+    itemParams.set('select', 'id,type,title,content,author_reply,language,device_name,is_resolved,created_at');
     itemParams.set('order', 'created_at.desc');
     itemParams.set('limit', '1');
     itemParams.set('offset', String(Math.floor(Math.random() * count)));

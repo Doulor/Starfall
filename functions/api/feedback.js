@@ -87,13 +87,13 @@ export async function onRequest(context) {
     const deviceName = safeDeviceName(payload.deviceName);
     const userAgent = cleanText(payload.userAgent, 180, false);
     if (content.length < 5) return json({ ok: false, error: 'Feedback content is required' }, 400);
-    if (deviceId && !UUID_RE.test(deviceId)) return json({ ok: false, error: 'Invalid deviceId' }, 400);
+    const validDeviceId = UUID_RE.test(deviceId) ? deviceId : '';
     const result = await insertFeedback(context.env, {
       type,
       title: title || null,
       content,
       language,
-      device_id: deviceId || null,
+      device_id: validDeviceId || null,
       device_name: deviceName || null,
       user_agent: userAgent || null,
       is_resolved: false,
