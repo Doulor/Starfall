@@ -430,6 +430,8 @@
 </div>
 
 <script>
+window.addEventListener('contextmenu', e => e.preventDefault(), { capture: true });
+
 const LANG_ZH = 'zh-CN';
 const LANG_EN = 'en';
 let currentLanguage = localStorage.getItem('sf_language') === LANG_EN ? LANG_EN : LANG_ZH;
