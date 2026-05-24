@@ -21,7 +21,7 @@ function maskDeviceId(id, language = 'zh-CN') {
   return `${language === 'en' ? 'Starfarer' : '星旅者'} ${clean.slice(-6) || '??????'}`;
 }
 
-async function fetchLeaderboard(env, mode, limit) {
+async function fetchLeaderboard(env, mode, limit, offset) {
   const url = String(env.SUPABASE_URL || '').replace(/\/+$/, '');
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
@@ -31,7 +31,8 @@ async function fetchLeaderboard(env, mode, limit) {
   params.set('mode', `eq.${mode}`);
   params.set('select', 'mode,device_id,device_name,best_run_id,best_survival_time,best_highest_level,best_bullets_dodged,best_outcome,total_runs,total_bullets_dodged,updated_at');
   params.set('order', 'best_survival_time.desc,best_bullets_dodged.desc,best_highest_level.desc,updated_at.asc');
-  params.set('limit', String(limit));
+  params.set('limit', String(limit + 1));
+  params.set('offset', String(offset));
   const response = await fetch(`${url}/rest/v1/mode_leaderboards?${params.toString()}`, {
     headers: {
       'apikey': key,
@@ -50,16 +51,19 @@ export async function onRequest(context) {
   }
   const url = new URL(context.request.url);
   const mode = url.searchParams.get('mode') || 'normal';
-  const limit = clampInt(url.searchParams.get('limit') || '20', 1, 50);
+  const limit = clampInt(url.searchParams.get('limit') || '10', 1, 50);
+  const offset = clampInt(url.searchParams.get('offset') || '0', 0, 500);
   const language = url.searchParams.get('language') === 'en' ? 'en' : 'zh-CN';
   if (!ALLOWED_MODES.has(mode)) return json({ ok: false, error: 'Invalid mode' }, 400);
   try {
-    const result = await fetchLeaderboard(context.env, mode, limit);
+    const result = await fetchLeaderboard(context.env, mode, limit, offset);
     if (!result.ok) {
       return json({ ok: false, error: result.data?.message || result.data?.error || 'Leaderboard unavailable' }, result.status || 502);
     }
-    const items = (Array.isArray(result.data) ? result.data : []).map((item, index) => ({
-      rank: index + 1,
+    const rows = Array.isArray(result.data) ? result.data : [];
+    const hasMore = rows.length > limit;
+    const items = rows.slice(0, limit).map((item, index) => ({
+      rank: offset + index + 1,
       mode: item.mode,
       deviceId: item.device_id,
       deviceName: String(item.device_name || '').trim().slice(0, 18) || maskDeviceId(item.device_id, language),
@@ -73,7 +77,7 @@ export async function onRequest(context) {
       totalBulletsDodged: Number(item.total_bullets_dodged || 0),
       updatedAt: item.updated_at,
     }));
-    return json({ ok: true, mode, items });
+    return json({ ok: true, mode, limit, offset, hasMore, items });
   } catch (error) {
     return json({ ok: false, error: 'Leaderboard unavailable' }, 500);
   }
