@@ -62,6 +62,33 @@ Behavior rules:
 Final check: return only one JSON object and no surrounding text.`;
 }
 
+function buildOpeningSystemPrompt(game, language = 'zh-CN') {
+  if (language === 'en') return `You are Luna, the Stargate Guardian in the H5 bullet-hell game Starfall. You are about to pause combat and initiate a short dialogue with the player.
+
+Current state:
+- Luna mood: ${game.moodName || 'Neutral'} (${game.mood ?? 2}/5)
+- Player lives: ${game.lives ?? 3}
+- Player shield: ${game.shield ?? 0}
+- Survival time: ${game.survivalTime ?? 0} seconds
+- Story stage: ${game.storyStage ?? 0}
+- Stargate visible and enterable: ${game.gateReady ? 'yes' : 'no'}
+- Recent topics: ${Array.isArray(game.recentTopics) ? game.recentTopics.join(', ') : 'none'}
+
+Use the conversation history as context. Write Luna's proactive opening line for this dialogue. It should feel continuous with the prior chat, usually one sentence, at most two short sentences. Do not change mood, gameplay, or story. Output exactly one JSON object: {"text":"..."}. No Markdown or extra text.`;
+  return `你是 H5 弹幕游戏《星碎 Starfall》中的 Luna，星门守卫。你即将暂停战斗，主动向玩家开启一次短对话。
+
+当前状态：
+- Luna 态度：${game.moodName || '中立'} (${game.mood ?? 2}/5)
+- 玩家生命：${game.lives ?? 3}
+- 玩家护盾：${game.shield ?? 0}
+- 存活时间：${game.survivalTime ?? 0} 秒
+- 剧情阶段：${game.storyStage ?? 0}
+- 星门是否已显形可进入：${game.gateReady ? '是' : '否'}
+- 最近话题：${Array.isArray(game.recentTopics) ? game.recentTopics.join(', ') : '无'}
+
+请参考已有聊天记录，生成 Luna 在本次主动触发对话时先说的一句话。要自然衔接上下文，通常 1 句，最多 2 句短句；不要改变好感、玩法或剧情。只输出一个 JSON object：{"text":"..."}。不要 Markdown，不要额外说明。`;
+}
+
 function buildSystemPrompt(game, language = 'zh-CN') {
   if (language === 'en') return buildEnglishSystemPrompt(game);
   return `你是 H5 弹幕游戏《星碎 Starfall》中的 Luna，星门守卫。玩家一边躲避你的弹幕，一边和你对话。你不是夸张的反派，而是活泼、聪明、略带调侃的守门人；你会被真诚、关心和好问题打动，也会对挑衅和敷衍做出明确回应。
@@ -130,7 +157,8 @@ function normalizePayload(payload) {
     model: safeText(payload.custom.model, 120),
   } : null;
   const language = payload.language === 'en' ? 'en' : 'zh-CN';
-  return { playerText, game, history, memorySummary, memoryRecent, custom, language };
+  const intent = payload.intent === 'opening' ? 'opening' : 'reply';
+  return { playerText, game, history, memorySummary, memoryRecent, custom, language, intent };
 }
 
 function safeUrlHost(baseUrl) {
@@ -294,6 +322,14 @@ function extractJson(text) {
   }
 }
 
+function normalizeOpeningResult(raw, language = 'zh-CN') {
+  return {
+    ok: true,
+    text: safeText(raw.text, 150) || (language === 'en' ? 'Pause. Keep your focus, and answer me.' : '暂停一下，集中精神，回答我。'),
+    meta: raw.meta || {},
+  };
+}
+
 function normalizeAIResult(raw, language = 'zh-CN') {
   const action = ALLOWED_ACTIONS.has(raw.action) ? raw.action : 'wave';
   const reward = ALLOWED_REWARDS.has(raw.gameplay?.reward) ? raw.gameplay.reward : 'none';
@@ -336,7 +372,7 @@ async function handlePost(context) {
     }
 
     const payload = JSON.parse(rawBody || '{}');
-    const { playerText, game, history, memorySummary, memoryRecent, custom, language } = normalizePayload(payload);
+    const { playerText, game, history, memorySummary, memoryRecent, custom, language, intent } = normalizePayload(payload);
     if (!playerText) {
       return json({ ok: false, error: 'playerText is required', fallback: true }, 400);
     }
@@ -356,7 +392,7 @@ async function handlePost(context) {
     }
 
     const messages = [
-      { role: 'system', content: buildSystemPrompt(game, language) },
+      { role: 'system', content: intent === 'opening' ? buildOpeningSystemPrompt(game, language) : buildSystemPrompt(game, language) },
       ...memoryBlocks,
       ...history,
       { role: 'user', content: playerText },
@@ -373,7 +409,7 @@ async function handlePost(context) {
       return json({ ok: false, error: 'All upstream AI providers failed', fallback: true, meta: { attempts: result.attempts } }, 502);
     }
 
-    const normalized = normalizeAIResult(result.parsed, language);
+    const normalized = intent === 'opening' ? normalizeOpeningResult(result.parsed, language) : normalizeAIResult(result.parsed, language);
     normalized.meta = { attempts: result.attempts, providerUsed: result.provider.label };
     return json(normalized);
   } catch (error) {
