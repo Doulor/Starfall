@@ -1,3 +1,5 @@
+import { deviceIdFromToken, readDeviceToken, safeDeviceName } from './_lib/device-auth.js';
+
 const ALLOWED_MODES = new Set(['normal', 'hard', 'infinite']);
 
 function json(data, status = 200) {
@@ -29,7 +31,10 @@ async function fetchLeaderboard(env, mode, limit, offset) {
   }
   const params = new URLSearchParams();
   params.set('mode', `eq.${mode}`);
-  params.set('select', 'mode,device_id,device_name,best_run_id,best_survival_time,best_highest_level,best_bullets_dodged,best_outcome,total_runs,total_bullets_dodged,updated_at');
+  // device_id 仍然要查（服务端要拿它算脱敏展示名和 isMe），但绝不写回响应；
+  // best_run_id 连查都不查 —— 它是 run_summaries 的主键，公开之后配合
+  // /api/runs 的 on conflict 就能抢别人的成绩行（报告 #14）。
+  params.set('select', 'mode,device_id,device_name,best_survival_time,best_highest_level,best_bullets_dodged,best_outcome,total_runs,total_bullets_dodged,updated_at');
   params.set('order', 'best_survival_time.desc,best_bullets_dodged.desc,best_highest_level.desc,updated_at.asc');
   params.set('limit', String(limit + 1));
   params.set('offset', String(offset));
@@ -56,6 +61,11 @@ export async function onRequest(context) {
   const language = url.searchParams.get('language') === 'en' ? 'en' : 'zh-CN';
   if (!ALLOWED_MODES.has(mode)) return json({ ok: false, error: 'Invalid mode' }, 400);
   try {
+    // 带设备凭据的请求才能标出"哪一行是自己"，凭据只用来判断归属，不做任何鉴权拦截：
+    // 排行榜本来就是公开只读数据。
+    const token = readDeviceToken(context.request, null);
+    const selfDeviceId = token ? await deviceIdFromToken(context.env, token) : null;
+
     const result = await fetchLeaderboard(context.env, mode, limit, offset);
     if (!result.ok) {
       return json({ ok: false, error: result.data?.message || result.data?.error || 'Leaderboard unavailable' }, result.status || 502);
@@ -65,10 +75,14 @@ export async function onRequest(context) {
     const items = rows.slice(0, limit).map((item, index) => ({
       rank: offset + index + 1,
       mode: item.mode,
-      deviceId: item.device_id,
-      deviceName: String(item.device_name || '').trim().slice(0, 18) || maskDeviceId(item.device_id, language),
+      // deviceId 现在是脱敏展示 id，不再是真实的设备 UUID。
+      deviceId: maskDeviceId(item.device_id, language),
+      // 昵称是玩家自己起、用于公开展示的名字，保持原样（只做控制字符/零宽字符清洗）。
+      // 它会变成别人也能写进隐私信息（比如填手机号）——但那属于玩家自曝，
+      // 而且以前真正的风险是"别人能改你的昵称"，那条已经在 /api/device 修掉。
+      deviceName: safeDeviceName(item.device_name) || maskDeviceId(item.device_id, language),
       displayId: maskDeviceId(item.device_id, language),
-      bestRunId: item.best_run_id,
+      isMe: Boolean(selfDeviceId && String(item.device_id || '').toLowerCase() === selfDeviceId.toLowerCase()),
       bestSurvivalTime: Number(item.best_survival_time || 0),
       bestHighestLevel: Number(item.best_highest_level || 1),
       bestBulletsDodged: Number(item.best_bullets_dodged || 0),
