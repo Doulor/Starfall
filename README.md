@@ -30,12 +30,18 @@ Luna 不是单纯的敌人，而是守门人：她必须阻拦玩家，却也会
 ```text
 .
 ├── index.html                    # 游戏主体：HTML / CSS / Canvas / 前端逻辑
-└── functions/
-    └── api/
-        ├── dialogue.js           # AI 对话接口，支持默认 API、备用 API、自定义 API
-        ├── runs.js               # 上传单局成绩到 Supabase RPC
-        ├── leaderboards.js       # 从 Supabase 读取排行榜
-        └── device.js             # 同步设备昵称到 Supabase
+├── functions/
+│   └── api/
+│       ├── dialogue.js           # AI 对话接口，支持默认 API、备用 API、自定义 API
+│       ├── runs.js               # 上传单局成绩到 Supabase RPC（需设备凭据）
+│       ├── leaderboards.js       # 从 Supabase 读取排行榜（不返回原始 deviceId / runId）
+│       ├── device.js             # 同步设备昵称到 Supabase（需设备凭据）
+│       └── _lib/                 # 公共模块（下划线开头的目录不会被 Pages 路由）
+│           ├── url-guard.js      # 出网白名单 / 内网判定 / 逐跳重定向校验
+│           ├── rate-limit.js     # 每 IP 限流与每日配额
+│           └── device-auth.js    # 设备凭据签发与校验
+└── tests/
+    └── security.test.mjs         # 安全回归测试（node --test，零依赖）
 ```
 
 ## 本地运行
@@ -109,6 +115,7 @@ POST /api/dialogue
    - 玩家在设置里填写自己的 Base URL、API Key 和模型。
    - 仍然通过 `/api/dialogue` 转发。
    - 使用自定义 API 时，只使用玩家填写的 custom provider，不会再尝试 Cloudflare 环境变量里的默认/备用 API。
+   - **出网白名单**：`baseUrl` 必须是 `https`、不带账号密码、走默认 443 端口，且主机名在运营方白名单内（默认内置 OpenAI / DeepSeek / Moonshot / 智谱 / 通义 / SiliconFlow / Groq / OpenRouter / Mistral 等常见 OpenAI-compatible 主机）。内网、回环、`169.254.169.254`、`100.64.0.0/10`、`.local` / `.internal`、`*.nip.io` 这类通配 DNS 一律拒绝；重定向逐跳校验，跨源重定向直接拒绝。运营方可以用 `AI_CUSTOM_ALLOWED_HOSTS` 增补白名单。
 
 3. **本地规则**
    - 完全离线。
@@ -158,6 +165,24 @@ AI_TIMEOUT_MS    # 可选：默认 12000，范围 3000-30000，单位毫秒
 AI_PROVIDER_COOLDOWN_MS # 可选：某个 provider 失败后的冷却时间，默认 300000，范围 0-1800000
 AI_DISABLE_JSON_MODE # 可选：设为 true/1 时主 API 不发送 response_format
 ```
+
+### 防护相关变量
+
+```text
+AI_RATE_LIMIT_PER_MINUTE   # 可选：每 IP 每分钟最多请求数，默认 20
+AI_DAILY_QUOTA_PER_IP      # 可选：每 IP 每天最多请求数，默认 200
+AI_CUSTOM_ALLOWED_HOSTS    # 可选：comma-separated，覆盖 custom provider 主机白名单；前缀 . 表示允许子域名
+AI_CUSTOM_ALLOW_ANY_HOST   # 可选：设为 true/1 时跳过域名白名单（仍拒绝内网/非 https/跨源重定向），仅建议自建端点场景
+AI_TEST_TOKEN              # 可选：设置后 /api/dialogue?test=1 才可用，请求需带 x-ai-test-token 头；不设则接口返回 404
+AI_TEST_RATE_LIMIT_PER_MINUTE # 可选：调试接口限流，默认 4
+AI_TEST_DAILY_QUOTA        # 可选：调试接口每日额度，默认 40
+DEVICE_TOKEN_SECRET        # 可选：设备凭据签名密钥；不设则回落到 SUPABASE_SERVICE_ROLE_KEY
+```
+
+说明：
+
+- 限流计数放在 isolate 内存里（这个仓库没有 KV / D1 绑定），属于「尽力而为」的第一道闸：单 isolate 内准确，跨 isolate 只能近似。要真正的全局限流，请在 Cloudflare Dashboard 给 `/api/dialogue` 再加一条 Rate limiting 规则。
+- 触发限流时接口返回 `429` 且 `fallback: true`，前端会自动回退到本地规则，玩家不会卡住。
 
 ### 备用 API
 
@@ -229,6 +254,26 @@ POST /api/device
 - `/api/leaderboards` 读取 Supabase 视图：`mode_leaderboards`
 - `/api/device` 直接 upsert `devices` 表
 
+### 设备凭据（写操作的归属校验）
+
+`/api/runs` 和 `/api/device` 都是写接口，必须先证明「这台设备是你的」：
+
+1. 首次调用（`devices` 表里还没有这台设备）时，服务端创建记录并返回
+   `deviceToken`（`v1.<deviceId>.<签发时间>.<HMAC-SHA256>`，无状态、用
+   `DEVICE_TOKEN_SECRET` 或 `SUPABASE_SERVICE_ROLE_KEY` 签名）。
+2. 之后每次写操作都要带 `x-device-token` 请求头。
+3. 已经存在、但还没绑定凭据的**历史设备**（`token_bound = false`）允许「认领」一次：
+   首次写操作会被接受、并把凭据下发，所以老玩家不需要重新注册。
+4. 已绑定凭据的设备，没有正确凭据一律 `401`。这就是修复「任何人凭 deviceId 改别人
+   设备名、伪造他人战绩」的关键。
+
+前端（`index.html` 里的 `deviceWrite`）已经实现自动流程：本地没有凭据时先调
+`/api/device` 领取，`401` 时清掉本地凭据重试一次，再不行就换一个新的 `deviceId`。
+玩家全程不需要做任何操作。
+
+> 如果迁移 SQL 没有执行（`devices.token_bound` 列不存在），代码会退回旧行为并在
+> `wrangler tail` / Cloudflare 日志里持续告警，避免排行榜功能直接不可用。请务必执行迁移。
+
 ## 一键创建 Supabase 数据库结构
 
 进入 Supabase 项目后台：
@@ -247,8 +292,15 @@ create table if not exists public.devices (
   device_name text not null default '',
   created_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
+  token_bound boolean not null default false,
   constraint devices_device_name_length check (char_length(device_name) <= 18)
 );
+
+-- 设备归属校验标记：服务端为设备签发凭据后置为 true。
+-- 已经建过表的旧库也必须跑这一句（幂等）——老设备行会保持 false，
+-- 首次写操作时自动认领并下发凭据，玩家不需要重新注册。
+alter table public.devices
+  add column if not exists token_bound boolean not null default false;
 
 create table if not exists public.run_summaries (
   run_id uuid primary key,
@@ -509,7 +561,7 @@ Root directory: / 或留空（取决于仓库是否就是项目根目录）
 6. 展开环境变量配置，添加本文 “AI 环境变量” 和 “Supabase 排行榜环境变量” 中需要的变量。
 7. 点击部署。
 8. 部署完成后访问 Cloudflare Pages 分配的域名。
-9. 进入游戏设置，点击“测试默认 API”，确认 `/api/dialogue?test=1` 可用。
+9. 进入游戏设置，点击“测试默认 API”：`/api/dialogue?test=1` 默认关闭，需要先在环境变量里配置 `AI_TEST_TOKEN` 才会返回结果。
 10. 完成一局并上传昵称，确认排行榜可写入 Supabase。
 
 ### 方式二：Wrangler 直接部署
@@ -598,22 +650,31 @@ AI_API_KEY_10
 AI_BASE_URL_10
 AI_MODEL_10
 
+AI_RATE_LIMIT_PER_MINUTE
+AI_DAILY_QUOTA_PER_IP
+AI_CUSTOM_ALLOWED_HOSTS
+AI_CUSTOM_ALLOW_ANY_HOST
+AI_TEST_TOKEN
+AI_TEST_RATE_LIMIT_PER_MINUTE
+AI_TEST_DAILY_QUOTA
+
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
+DEVICE_TOKEN_SECRET
 ```
 
 ## 部署后检查清单
 
 1. 打开首页，确认游戏正常加载。
 2. 打开“AI 与声音设置”。
-3. 点击“测试默认 API”。
-4. 如果提示默认 API 可用，说明 Cloudflare AI 环境变量配置正确。
+3. 点击“测试默认 API”。（该诊断接口默认关闭；配置了 `AI_TEST_TOKEN` 才会真正探活，否则界面会提示“默认接口关闭”。）
+4. 如果提示默认 API 可用，说明 Cloudflare AI 环境变量配置正确；即使不配置 `AI_TEST_TOKEN`，下一局能正常对话也等价于配置正确。
 5. 开始普通模式，等待触发对话。
 6. 发送一句话，确认 Luna 能根据上下文回复。
 7. 完成或失败一局。
-8. 输入昵称并上传成绩。
-9. 打开排行榜，确认成绩出现。
-10. 在 Supabase 中检查 `run_summaries` 和 `mode_leaderboards` 是否有数据。
+8. 输入昵称并上传成绩（首次上传会自动签发设备凭据）。
+9. 打开排行榜，确认成绩出现、并且自己那一行有高亮。
+10. 在 Supabase 中检查 `run_summaries` 和 `mode_leaderboards` 是否有数据，`devices.token_bound` 是否为 `true`。
 
 ## 常见问题
 
@@ -668,3 +729,51 @@ SUPABASE_SERVICE_ROLE_KEY
 - 玩家自定义 API Key 保存在玩家本机浏览器 `localStorage` 中。
 - 跨局聊天记忆也只保存在玩家本机浏览器。
 - Cloudflare 环境变量区分 Production / Preview，部署前确认变量添加到了正确环境。
+
+### 已实施的服务端防护（对应渗透测试报告）
+
+| 面 | 措施 |
+| --- | --- |
+| `custom.baseUrl` SSRF（#10 / #45） | `_lib/url-guard.js`：只允许 https、禁账号密码、禁非 443 端口、内网 / 回环 / `169.254.169.254` / CGNAT / `.local` / 通配 DNS 一律拒绝，主机必须命中白名单；`redirect: 'manual'` 逐跳校验，跨源重定向直接拒绝 |
+| 付费额度被白嫖（#31） | 每 IP 限流 + 每日配额（`AI_RATE_LIMIT_PER_MINUTE` / `AI_DAILY_QUOTA_PER_IP`），超限返回 `429` + `fallback:true`；响应里不再出现 provider 名、模型名、上游 host、上游错误原文 |
+| 系统提示词外带（#10） | 系统提示词由服务端固定生成，`game.moodName` 等字段由服务端重新派生/裁剪；玩家可控内容（跨局记忆、聊天记录）排在固定设定之后，并在最后补一条服务端提醒 |
+| 调试接口泄露配置（#61） | `GET /api/dialogue?test=1` 默认关闭（返回 404）；只有配置 `AI_TEST_TOKEN` 且请求带对 `x-ai-test-token` 时才可用，且只返回聚合信息 |
+| 设备名 / 战绩水平越权（#14） | `/api/device`、`/api/runs` 必须带服务端签发的 `x-device-token`；`/api/leaderboards` 不再返回原始 `device_id` 和 `run_id`，改用 `isMe` 标记自己那一行 |
+| 抢别人的成绩行（#14） | `/api/runs` 遇到「同一个 `runId` 已属于别的设备」时返回 `409 RUN_ID_CONFLICT` |
+
+**部署必做**：执行「一键创建 Supabase 数据库结构」里新增的
+`alter table public.devices add column if not exists token_bound boolean not null default false;`，
+否则设备归属校验会退回旧行为（并在日志里持续告警）。
+
+### 安全回归测试
+
+仓库自带零依赖测试（`node:test`，不需要 `npm install`，也不会打真实上游）：
+
+```bash
+node --test tests/security.test.mjs
+```
+
+覆盖：内网 / 元数据地址拒绝、白名单外主机拒绝、跨源重定向拒绝、响应不泄露 provider、
+限流、`?test=1` 门禁、`game.moodName` 注入、设备凭据签发/校验、无凭据改他人设备名、
+无凭据伪造战绩、排行榜不返回原始 id。
+
+手工验证（本地 Wrangler）：
+
+```bash
+npx wrangler pages dev . --compatibility-date=2024-11-01
+```
+
+```bash
+# 1) custom.baseUrl 打内网 / 元数据 → 400，不会真的发出请求
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:8788/api/dialogue \
+  -H 'Content-Type: application/json' \
+  -d '{"playerText":"hi","custom":{"baseUrl":"https://169.254.169.254/latest/meta-data","apiKey":"k","model":"m"}}'
+
+# 2) 未带凭据改别人 deviceName → 401（需要配置 SUPABASE_* 与 token_bound 列）
+curl -s -X POST http://127.0.0.1:8788/api/device \
+  -H 'Content-Type: application/json' \
+  -d '{"deviceId":"<已有设备的 uuid>","deviceName":"被篡改"}'
+
+# 3) ?test=1 不再泄露配置 → 404
+curl -s http://127.0.0.1:8788/api/dialogue?test=1
+```

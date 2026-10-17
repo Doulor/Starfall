@@ -399,7 +399,7 @@ async function callProvider(provider, messages, options = {}) {
       response = await request(false);
       if (response.guardError) return fail(response.guardError);
     }
-    const { upstream, rawText, useJsonMode } = response;
+    const { upstream, rawText } = response;
     if (!upstream.ok) {
       // 3xx 只会来自 custom 守卫（managed provider 由运行时自动跟随），统一当失败处理。
       return fail('Upstream AI unavailable', { status: upstream.status, detail: rawText });
